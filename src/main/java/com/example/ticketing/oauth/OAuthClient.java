@@ -7,5 +7,8 @@ public interface OAuthClient {
 
     Provider getProvider();
 
-    OAuthUserInfo getUserInfo(String authorizationCode);
+    OAuthUserInfo getUserInfo(
+            String authorizationCode,
+            String codeVerifier
+    );
 }

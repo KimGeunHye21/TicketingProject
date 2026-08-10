@@ -32,7 +32,7 @@ public class AuthService {
             );
         };
         OAuthUserInfo userInfo =
-                oauthClient.getUserInfo(request.authorizationCode());
+                oauthClient.getUserInfo(request.authorizationCode(), request.codeVerifier());
 
 
         // TODO: providerId로 기존 회원 조회

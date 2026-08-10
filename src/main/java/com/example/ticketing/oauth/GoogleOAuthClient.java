@@ -10,7 +10,7 @@ public class GoogleOAuthClient implements OAuthClient {
     }
 
     @Override
-    public OAuthUserInfo getUserInfo(String authorizationCode) {
+    public OAuthUserInfo getUserInfo(String authorizationCode, String codeVerifier) {
 
         // TODO authorizationCode로 Google Access Token 요청
         // TODO Google 사용자 정보 조회
