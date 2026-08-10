@@ -1,6 +1,8 @@
 package com.example.ticketing.service;
 
 import com.example.ticketing.domain.Provider;
+import com.example.ticketing.domain.Role;
+import com.example.ticketing.domain.User;
 import com.example.ticketing.dto.auth.LoginRequest;
 import com.example.ticketing.dto.auth.LoginResponse;
 import com.example.ticketing.dto.auth.RefreshRequest;
@@ -10,6 +12,7 @@ import com.example.ticketing.oauth.GoogleOAuthClient;
 import com.example.ticketing.oauth.OAuthClient;
 import com.example.ticketing.oauth.OAuthUserInfo;
 
+import com.example.ticketing.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +21,7 @@ import org.springframework.stereotype.Service;
 public class AuthService {
 
     private final GoogleOAuthClient googleOAuthClient;
+    private final UserRepository userRepository;
 
 
     // 로그인
@@ -34,11 +38,24 @@ public class AuthService {
         OAuthUserInfo userInfo =
                 oauthClient.getUserInfo(request.authorizationCode(), request.codeVerifier());
 
-
         // TODO: providerId로 기존 회원 조회
         // TODO: 없으면 Google 정보로 User 생성 및 저장
+        User user = userRepository
+                .findByProviderAndProviderId(
+                        provider,
+                        userInfo.providerId()
+                )
+                .orElseGet(() -> userRepository.save(
+                        new User(
+                                provider,
+                                userInfo.providerId(),
+                                userInfo.email(),
+                                userInfo.name(),
+                                Role.USER
+                        )
+                ));
 
-        // TODO: 우리 서비스 Access Token(JWT) 생성
+        // TODO: 서비스 Access Token(JWT) 생성
         // TODO: Refresh Token 생성
         // TODO: Refresh Token Redis 저장
         // TODO: Access Token + Refresh Token 응답
