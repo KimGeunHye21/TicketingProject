@@ -13,6 +13,7 @@ import com.example.ticketing.oauth.OAuthClient;
 import com.example.ticketing.oauth.OAuthUserInfo;
 
 import com.example.ticketing.repository.UserRepository;
+import com.example.ticketing.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -22,7 +23,7 @@ public class AuthService {
 
     private final GoogleOAuthClient googleOAuthClient;
     private final UserRepository userRepository;
-
+    private final JwtTokenProvider jwtTokenProvider;
 
     // 로그인
     public LoginResponse login(Provider provider, LoginRequest request) {
@@ -55,8 +56,11 @@ public class AuthService {
                         )
                 ));
 
-        // TODO: 서비스 Access Token(JWT) 생성
+        // TODO: Access Token 생성
         // TODO: Refresh Token 생성
+        String accessToken = jwtTokenProvider.createAccessToken(user);
+        String refreshToken = jwtTokenProvider.createRefreshToken(user);
+
         // TODO: Refresh Token Redis 저장
         // TODO: Access Token + Refresh Token 응답
 
