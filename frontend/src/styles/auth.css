@@ -1,0 +1,271 @@
+/* 전체 페이지 */
+.auth-page {
+    min-height: 100vh;
+    background-color: #f7f7f8;
+    color: #222;
+    padding: 60px 20px;
+    box-sizing: border-box;
+}
+
+
+/* 가운데 콘텐츠 영역 */
+.auth-container {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+
+    background: #ffffff;
+    border: 1px solid #e8e8e8;
+    border-radius: 16px;
+
+    padding: 48px;
+
+    box-sizing: border-box;
+}
+
+
+/* 제목 */
+.auth-title {
+    margin: 0 0 40px;
+
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.8px;
+
+    color: #111;
+}
+
+
+/* 이용약관 / 개인정보처리방침 섹션 */
+.auth-section {
+    margin-bottom: 38px;
+}
+
+
+/* 섹션 제목 */
+.auth-section h2 {
+    margin: 0 0 14px;
+
+    font-size: 19px;
+    font-weight: 700;
+
+    color: #222;
+}
+
+
+/* 일반 글 */
+.auth-section p {
+    margin: 0 0 12px;
+
+    font-size: 15px;
+    line-height: 1.8;
+
+    color: #555;
+}
+
+
+/* 목록 */
+.auth-section ul {
+    margin: 12px 0 18px;
+    padding-left: 22px;
+}
+
+
+.auth-section li {
+    margin-bottom: 8px;
+
+    font-size: 15px;
+    line-height: 1.7;
+
+    color: #555;
+}
+
+
+.auth-intro {
+    margin: -20px 0 40px;
+
+    font-size: 15px;
+    line-height: 1.8;
+
+    color: #555;
+}
+
+
+/* 로그인으로 돌아가기 */
+.auth-back-link {
+    display: inline-block;
+
+    margin-top: 20px;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    color: #333;
+    text-decoration: none;
+}
+
+
+.auth-back-link:hover {
+    text-decoration: underline;
+}
+
+
+/* 로그인 페이지 */
+.login-container {
+    width: 100%;
+    max-width: 420px;
+
+    margin: 100px auto 0;
+
+    text-align: center;
+}
+
+
+/* 프로젝트 이름 */
+.login-title {
+    margin-bottom: 44px;
+
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -1px;
+
+    color: #111;
+}
+
+
+/* Google 로그인 버튼 */
+.google-login-button {
+    width: 100%;
+    height: 54px;
+
+    border: 1px solid #dadce0;
+    border-radius: 10px;
+
+    background-color: #ffffff;
+
+    font-size: 15px;
+    font-weight: 600;
+
+    color: #222;
+
+    cursor: pointer;
+
+    transition:
+            background-color 0.15s ease,
+            box-shadow 0.15s ease,
+            transform 0.1s ease;
+}
+
+
+.google-login-button:hover {
+    background-color: #f8f9fa;
+
+    box-shadow:
+            0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+
+.google-login-button:active {
+    transform: scale(0.99);
+}
+
+
+/* 약관 안내 문구 */
+.login-policy {
+    margin-top: 22px;
+
+    font-size: 13px;
+    line-height: 1.7;
+
+    color: #888;
+}
+
+
+.login-policy a {
+    color: #555;
+    font-weight: 600;
+
+    text-decoration: none;
+}
+
+
+.login-policy a:hover {
+    text-decoration: underline;
+}
+
+
+/* OAuth Callback */
+.callback-container {
+    min-height: 70vh;
+
+    display: flex;
+    flex-direction: column;
+
+    align-items: center;
+    justify-content: center;
+}
+
+
+.callback-spinner {
+    width: 36px;
+    height: 36px;
+
+    border: 3px solid #e5e5e5;
+    border-top-color: #333;
+
+    border-radius: 50%;
+
+    animation: callback-spin 0.8s linear infinite;
+}
+
+
+.callback-message {
+    margin-top: 18px;
+
+    font-size: 14px;
+
+    color: #666;
+}
+
+
+@keyframes callback-spin {
+
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+
+/* 모바일 */
+@media (max-width: 600px) {
+
+    .auth-page {
+        padding: 30px 16px;
+    }
+
+    .auth-container {
+        padding: 30px 22px;
+        border-radius: 12px;
+    }
+
+    .auth-title {
+        font-size: 26px;
+        margin-bottom: 32px;
+    }
+
+    .auth-section h2 {
+        font-size: 18px;
+    }
+
+    .login-container {
+        margin-top: 60px;
+    }
+
+    .login-title {
+        font-size: 28px;
+    }
+}

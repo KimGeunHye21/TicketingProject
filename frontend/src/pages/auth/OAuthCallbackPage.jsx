@@ -1,17 +1,16 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import '../../styles/auth.css';
 
 function OAuthCallbackPage() {
 
     const navigate = useNavigate();
-
 
     useEffect(() => {
 
         const login = async () => {
 
             try {
-
                 // 1. URL에서 authorizationCode 꺼내기
                 const params =
                     new URLSearchParams(
@@ -20,7 +19,6 @@ function OAuthCallbackPage() {
 
                 const authorizationCode =
                     params.get('code');
-
 
                 if (!authorizationCode) {
                     throw new Error(
@@ -34,7 +32,6 @@ function OAuthCallbackPage() {
                     sessionStorage.getItem(
                         'google_code_verifier'
                     );
-
 
                 if (!codeVerifier) {
                     throw new Error(
@@ -73,12 +70,6 @@ function OAuthCallbackPage() {
                     await response.json();
 
 
-                // {
-                //   accessToken: "...",
-                //   refreshToken: "..."
-                // }
-
-
                 // 5. JWT 저장
                 sessionStorage.setItem(
                     'accessToken',
@@ -91,13 +82,13 @@ function OAuthCallbackPage() {
                 );
 
 
-                // 이제 codeVerifier는 필요 없음
+                // 6. 사용 완료한 codeVerifier 삭제
                 sessionStorage.removeItem(
                     'google_code_verifier'
                 );
 
 
-                // 6. 메인 페이지 이동
+                // 7. 메인 페이지 이동
                 navigate('/');
 
             } catch (error) {
@@ -117,9 +108,19 @@ function OAuthCallbackPage() {
 
 
     return (
-        <div>
-            로그인 처리 중...
-        </div>
+        <main className="auth-page">
+
+            <div className="callback-container">
+
+                <div className="callback-spinner" />
+
+                <p className="callback-message">
+                    로그인 처리 중...
+                </p>
+
+            </div>
+
+        </main>
     );
 }
 
