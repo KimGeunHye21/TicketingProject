@@ -4,98 +4,89 @@ function LoginPage() {
 
     const [agreed, setAgreed] = useState(false);
 
-    const handleGoogleLogin = () => {
+
+    // Google 로그인 버튼 클릭
+    const handleGoogleLogin = async () => {
 
         if (!agreed) {
             return;
         }
 
-        // PKCE용 codeVerifier 생성
-        const generateCodeVerifier = () => {
+        // 1. codeVerifier 생성
+        const codeVerifier =
+            generateCodeVerifier();
 
-            const array = new Uint8Array(32);
-
-            crypto.getRandomValues(array);
-
-            return base64UrlEncode(array);
-        };
-
-        // codeVerifier -> codeChallenge
-        const generateCodeChallenge = async (codeVerifier) => {
-
-            const encoder = new TextEncoder();
-
-            const data = encoder.encode(codeVerifier);
-
-            const digest = await crypto.subtle.digest(
-                'SHA-256',
-                data
-            );
-
-            return base64UrlEncode(
-                new Uint8Array(digest)
-            );
-        };
-
-        // Base64URL 형태로 변환
-        const base64UrlEncode = (array) => {
-
-            const string = String.fromCharCode(...array);
-
-            return btoa(string)
-                .replace(/\+/g, '-')
-                .replace(/\//g, '_')
-                .replace(/=+$/, '');
-        };
+        // 2. codeChallenge 생성
+        const codeChallenge =
+            await generateCodeChallenge(codeVerifier);
 
 
-        // Google 로그인 버튼 클릭
-        const handleGoogleLogin = async () => {
+        // 3. callback에서 다시 사용해야 하므로 저장
+        sessionStorage.setItem(
+            'google_code_verifier',
+            codeVerifier
+        );
 
-            if (!agreed) {
-                return;
-            }
+        // 4. Google OAuth URL 생성
+        const params = new URLSearchParams({
 
-            // 1. codeVerifier 생성
-            const codeVerifier =
-                generateCodeVerifier();
+            client_id:
+            import.meta.env.VITE_GOOGLE_CLIENT_ID,
 
-            // 2. codeChallenge 생성
-            const codeChallenge =
-                await generateCodeChallenge(codeVerifier);
+            redirect_uri:
+            import.meta.env.VITE_GOOGLE_REDIRECT_URI,
 
+            response_type: 'code',
 
-            // 3. callback에서 다시 사용해야 하므로 저장
-            sessionStorage.setItem(
-                'google_code_verifier',
-                codeVerifier
-            );
+            scope: 'openid email profile',
 
-            // 4. Google OAuth URL 생성
-            const params = new URLSearchParams({
+            code_challenge: codeChallenge,
 
-                client_id:
-                import.meta.env.VITE_GOOGLE_CLIENT_ID,
-
-                redirect_uri:
-                import.meta.env.VITE_GOOGLE_REDIRECT_URI,
-
-                response_type: 'code',
-
-                scope: 'openid email profile',
-
-                code_challenge: codeChallenge,
-
-                code_challenge_method: 'S256'
-            });
+            code_challenge_method: 'S256'
+        });
 
 
-            // 5. Google 로그인 페이지로 이동
-            window.location.href =
-                `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-        };
+        // 5. Google 로그인 페이지로 이동
+        window.location.href =
+            `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    };
 
-        console.log('Google 로그인 시작');
+    // PKCE용 codeVerifier 생성
+    const generateCodeVerifier = () => {
+
+        const array = new Uint8Array(32);
+
+        crypto.getRandomValues(array);
+
+        return base64UrlEncode(array);
+    };
+
+    // codeVerifier -> codeChallenge
+    const generateCodeChallenge = async (codeVerifier) => {
+
+        const encoder = new TextEncoder();
+
+        const data = encoder.encode(codeVerifier);
+
+        const digest = await crypto.subtle.digest(
+            'SHA-256',
+            data
+        );
+
+        return base64UrlEncode(
+            new Uint8Array(digest)
+        );
+    };
+
+    // Base64URL 형태로 변환
+    const base64UrlEncode = (array) => {
+
+        const string = String.fromCharCode(...array);
+
+        return btoa(string)
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
     };
 
     return (

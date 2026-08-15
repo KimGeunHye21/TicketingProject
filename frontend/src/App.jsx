@@ -18,7 +18,7 @@ function App() {
                 element={<LoginPage />}
             />
             <Route
-                path="/oauth/google/callback"
+                path="/oauth/callback"
                 element={<OAuthCallbackPage />}
             />
 
