@@ -12,10 +12,13 @@ import com.example.ticketing.oauth.GoogleOAuthClient;
 import com.example.ticketing.oauth.OAuthClient;
 import com.example.ticketing.oauth.OAuthUserInfo;
 
+import com.example.ticketing.redis.RefreshTokenStore;
 import com.example.ticketing.repository.UserRepository;
 import com.example.ticketing.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
 
 @Service
 @RequiredArgsConstructor
@@ -24,12 +27,13 @@ public class AuthService {
     private final GoogleOAuthClient googleOAuthClient;
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenStore refreshTokenStore;
 
     // 로그인
     public LoginResponse login(Provider provider, LoginRequest request) {
 
-        // TODO: Authorization Code로 Google Access Token 받기
-        // TODO: Google Access Token으로 사용자 정보 조회
+        // Authorization Code로 Google Access Token 받기
+        // Google Access Token으로 사용자 정보 조회
         OAuthClient oauthClient = switch (provider) {
             case GOOGLE -> googleOAuthClient;
             default -> throw new IllegalArgumentException(
@@ -39,8 +43,8 @@ public class AuthService {
         OAuthUserInfo userInfo =
                 oauthClient.getUserInfo(request.authorizationCode(), request.codeVerifier());
 
-        // TODO: providerId로 기존 회원 조회
-        // TODO: 없으면 Google 정보로 User 생성 및 저장
+        // providerId로 기존 회원 조회
+        // 없으면 Google 정보로 User 생성 및 저장
         User user = userRepository
                 .findByProviderAndProviderId(
                         provider,
@@ -56,15 +60,23 @@ public class AuthService {
                         )
                 ));
 
-        // TODO: Access Token 생성
-        // TODO: Refresh Token 생성
+        // Access Token 생성
+        // Refresh Token 생성
         String accessToken = jwtTokenProvider.createAccessToken(user);
         String refreshToken = jwtTokenProvider.createRefreshToken(user);
 
-        // TODO: Refresh Token Redis 저장
-        // TODO: Access Token + Refresh Token 응답
+        // Refresh Token Redis 저장
+        refreshTokenStore.save(
+                user.getId(),
+                refreshToken,
+                Duration.ofDays(14)
+        );
 
-        return null;
+        // Access Token + Refresh Token 응답
+        return new LoginResponse(
+                accessToken,
+                refreshToken
+        );
     }
 
 
