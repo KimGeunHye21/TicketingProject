@@ -83,36 +83,92 @@ public class AuthService {
     // Access Token 재발급
     public TokenResponse refreshAccessToken(RefreshRequest request) {
 
-        // TODO: Refresh Token 추출
-        // TODO: Redis에 저장된 Refresh Token과 비교
-        // TODO: Refresh Token 유효성 검증
-        // TODO: userId 추출
-        // TODO: 새로운 Access Token 생성
-        // TODO: TokenResponse 생성
+        // Refresh Token 추출
+        String refreshToken = request.refreshToken();
 
-        return null;
+        // Refresh Token 유효성 검증
+        if (!jwtTokenProvider.validateToken(refreshToken)) {
+            throw new IllegalArgumentException(
+                    "유효하지 않은 Refresh Token입니다."
+            );
+        }
+        if (!jwtTokenProvider.isRefreshToken(refreshToken)) {
+            throw new IllegalArgumentException(
+                    "Refresh Token이 아닙니다."
+            );
+        }
+
+        // userId 추출
+        Long userId = jwtTokenProvider.getUserId(refreshToken);
+
+        // Redis에 저장된 Refresh Token과 비교
+        String savedRefreshToken = refreshTokenStore.find(userId);
+        if (savedRefreshToken == null
+                || !savedRefreshToken.equals(refreshToken)) {
+
+            throw new IllegalArgumentException(
+                    "Refresh Token이 일치하지 않습니다."
+            );
+        }
+
+        // 새로운 Access Token 생성
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "존재하지 않는 사용자입니다."
+                        )
+                );
+        String newAccessToken = jwtTokenProvider.createAccessToken(user);
+
+        // TokenResponse 생성
+        return new TokenResponse(
+                newAccessToken
+        );
     }
 
     // 현재 로그인한 사용자 정보 조회
     public UserResponse getCurrentUser(Long userId) {
 
-        // TODO: userId로 DB에서 User 조회
-        // TODO: User -> UserResponse 변환
+        // userId로 DB에서 User 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "존재하지 않는 사용자입니다."
+                        )
+                );
 
-        return null;
+        // User -> UserResponse 변환
+        return new UserResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getName(),
+                user.getRole()
+        );
     }
 
     // 로그아웃
     public void logout(Long userId) {
 
-        // TODO: Redis에서 해당 사용자의 Refresh Token 삭제
+        // Redis에서 해당 사용자의 Refresh Token 삭제
+        refreshTokenStore.delete(userId);
     }
 
 
     // 회원 탈퇴
     public void withdraw(Long userId) {
 
-        // TODO: Redis에서 Refresh Token 삭제
-        // TODO: DB에서 사용자 삭제 또는 탈퇴 처리
+        // Redis에서 Refresh Token 삭제
+        refreshTokenStore.delete(userId);
+
+        // DB에서 사용자 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "존재하지 않는 사용자입니다."
+                        )
+                );
+
+        // 사용자 삭제
+        userRepository.delete(user);
     }
 }
