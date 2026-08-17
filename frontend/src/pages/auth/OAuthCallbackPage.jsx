@@ -1,16 +1,25 @@
-import { useEffect } from 'react';
+import {
+    useEffect,
+    useRef
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../../styles/auth.css';
 import {
     useAuth
 } from '../../contexts/AuthContext';
 
+
+
 function OAuthCallbackPage() {
 
     const navigate = useNavigate();
     const { checkAuth } = useAuth();
+    const loginStarted = useRef(false);
 
     useEffect(() => {
+        // 이미 로그인 처리를 시작했다면 다시 실행하지 않음
+        if (loginStarted.current) { return; }
+        loginStarted.current = true;
 
         const login = async () => {
 

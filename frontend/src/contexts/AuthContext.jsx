@@ -1,5 +1,6 @@
 import {
     createContext,
+    useCallback,
     useContext,
     useEffect,
     useState
@@ -24,34 +25,44 @@ export function AuthProvider({ children }) {
 
 
     // 현재 로그인 상태 확인
-    const checkAuth = async () => {
+    const checkAuth =
+        useCallback(async () => {
 
-        try {
+            // 액세스 토큰이 존재하는 경우에만 /auth/me 호출
+            const accessToken =
+                sessionStorage.getItem('accessToken');
 
-            const response =
-                await api.get('/auth/me');
+            if (!accessToken) {
+                setUser(null);
+                setLoading(false);
+                return;
+            }
 
-            // 로그인 성공
-            setUser(response.data);
+            try {
 
-        } catch (error) {
+                const response =
+                    await api.get('/auth/me');
 
-            // 로그인 안 되어 있음
-            setUser(null);
+                setUser(response.data);
 
-        } finally {
+            } catch (error) {
 
-            setLoading(false);
-        }
-    };
+                setUser(null);
+
+            } finally {
+
+                setLoading(false);
+            }
+
+        }, []);
 
 
     // 앱 처음 실행될 때 로그인 상태 확인
     useEffect(() => {
 
-        checkAuth();
+        void checkAuth();
 
-    }, []);
+    }, [checkAuth]);
 
 
     // 로그인 여부
