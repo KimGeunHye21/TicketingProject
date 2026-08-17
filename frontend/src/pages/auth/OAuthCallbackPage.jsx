@@ -1,10 +1,14 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../../styles/auth.css';
+import {
+    useAuth
+} from '../../contexts/AuthContext';
 
 function OAuthCallbackPage() {
 
     const navigate = useNavigate();
+    const { checkAuth } = useAuth();
 
     useEffect(() => {
 
@@ -81,8 +85,10 @@ function OAuthCallbackPage() {
                     'google_code_verifier'
                 );
 
+                // 7. AuthContext 로그인 상태 갱신
+                await checkAuth();
 
-                // 7. 메인 페이지 이동
+                // 8. 메인 페이지 이동
                 navigate('/');
 
             } catch (error) {

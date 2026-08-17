@@ -4,10 +4,15 @@ import LoginPage from './pages/auth/LoginPage';
 import OAuthCallbackPage from './pages/auth/OAuthCallbackPage';
 import TermsPage from './pages/auth/TermsPage.jsx';
 import PrivacyPage from './pages/auth/PrivacyPage';
+import LogoutPage from './pages/auth/LogoutPage';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
     return (
         <Routes>
+
+            {/* 로그인 없어도 접근 가능 */}
+
             <Route
                 path="/"
                 element={<h1>메인 페이지</h1>}
@@ -31,6 +36,17 @@ function App() {
             <Route
                 path="/auth/privacy"
                 element={<PrivacyPage />}
+            />
+
+            {/* 로그인 필요 */}
+
+            <Route
+                path="/logout"
+                element={
+                    <ProtectedRoute>
+                        <LogoutPage />
+                    </ProtectedRoute>
+                }
             />
         </Routes>
     );

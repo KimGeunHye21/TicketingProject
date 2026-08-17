@@ -28,10 +28,13 @@ api.interceptors.response.use(
     async (error) => {
 
         const originalRequest = error.config;
+        const accessToken =
+            sessionStorage.getItem("accessToken");
 
         // Access Token 만료로 401 발생
         if (
             error.response?.status === 401 &&
+            accessToken &&
             originalRequest &&
             !originalRequest._retry
         ) {

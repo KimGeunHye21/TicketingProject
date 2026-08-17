@@ -1,7 +1,40 @@
-import { Link } from 'react-router-dom';
+import {
+    Link,
+    useLocation,
+    useNavigate
+} from 'react-router-dom';
+
+import {
+    useState
+} from 'react';
+
 import '../../styles/auth.css';
 
 function LoginPage() {
+
+    // 로그인이 필요한 페이지의 안내 메시지
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    const [showAlert, setShowAlert] =
+        useState(
+            Boolean(location.state?.message)
+        );
+
+    const handleAlertConfirm = () => {
+
+        setShowAlert(false);
+
+        // 현재 history에 남아 있는 message도 제거
+        navigate(
+            '/login',
+            {
+                replace: true,
+                state: null
+            }
+        );
+    };
+
 
     // Base64URL 형태로 변환
     const base64UrlEncode = (array) => {
@@ -88,6 +121,25 @@ function LoginPage() {
 
     return (
         <main className="auth-page">
+
+            {showAlert && (
+                <div className="login-alert">
+
+                    <p className="login-alert-message">
+                        {location.state?.message}
+                    </p>
+
+                    <button
+                        type="button"
+                        className="login-alert-button"
+                        onClick={handleAlertConfirm}
+                    >
+                        확인
+                    </button>
+
+                </div>
+            )}
+
 
             <div className="login-container">
 
