@@ -2,16 +2,17 @@ package com.example.ticketing.controller;
 
 
 import com.example.ticketing.domain.Provider;
-import com.example.ticketing.dto.auth.LoginRequest;
-import com.example.ticketing.dto.auth.LoginResponse;
-import com.example.ticketing.dto.auth.RefreshRequest;
-import com.example.ticketing.dto.auth.TokenResponse;
+import com.example.ticketing.dto.auth.*;
 import com.example.ticketing.dto.user.UserResponse;
 import com.example.ticketing.security.CustomUserDetails;
 import com.example.ticketing.service.AuthService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+
+import java.time.Duration;
 
 @RestController
 @RequestMapping("/auth")
@@ -28,17 +29,39 @@ public class AuthController {
             @PathVariable Provider provider,
             @RequestBody LoginRequest request
     ) {
-        LoginResponse response = authService.login(provider, request);
+        LoginResult result = authService.login(provider, request);
 
-        return ResponseEntity.ok(response);
+        // Refresh Token을 브라우저에 저장할 HttpOnly 쿠키 생성
+        ResponseCookie refreshCookie =
+                ResponseCookie
+                        .from(
+                                "refreshToken",
+                                result.refreshToken()
+                        )
+                        .httpOnly(true)
+                        .secure(false) // 로컬 개발(http)
+                        .path("/")
+                        .maxAge(Duration.ofDays(14))
+                        .sameSite("Lax") //다른 사이트에서 내 사이트로 요청을 보낼 때 쿠키가 함부로 전송되는 걸 제한하는 보안 설정
+                        .build();
+
+        LoginResponse response = new LoginResponse(result.accessToken());
+
+        return ResponseEntity
+                .ok()
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        refreshCookie.toString()
+                )
+                .body(response);
     }
 
     // Access Token 재발급
     @PostMapping("/refresh")
     public ResponseEntity<TokenResponse> refreshAccessToken(
-            @RequestBody RefreshRequest request
+            @CookieValue("refreshToken") String refreshToken
     ) {
-        TokenResponse response = authService.refreshAccessToken(request);
+        TokenResponse response = authService.refreshAccessToken(refreshToken);
 
         return ResponseEntity.ok(response);
     }

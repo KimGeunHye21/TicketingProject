@@ -45,11 +45,10 @@ function OAuthCallbackPage() {
                     `${import.meta.env.VITE_API_BASE_URL}/auth/login/GOOGLE`,
                     {
                         method: 'POST',
-
+                        credentials: 'include',
                         headers: {
                             'Content-Type': 'application/json'
                         },
-
                         body: JSON.stringify({
                             authorizationCode,
                             codeVerifier
@@ -74,11 +73,6 @@ function OAuthCallbackPage() {
                 sessionStorage.setItem(
                     'accessToken',
                     data.accessToken
-                );
-
-                sessionStorage.setItem(
-                    'refreshToken',
-                    data.refreshToken
                 );
 
 

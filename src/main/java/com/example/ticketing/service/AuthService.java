@@ -3,11 +3,9 @@ package com.example.ticketing.service;
 import com.example.ticketing.domain.Provider;
 import com.example.ticketing.domain.Role;
 import com.example.ticketing.domain.User;
-import com.example.ticketing.dto.auth.LoginRequest;
-import com.example.ticketing.dto.auth.LoginResponse;
-import com.example.ticketing.dto.auth.RefreshRequest;
-import com.example.ticketing.dto.auth.TokenResponse;
+import com.example.ticketing.dto.auth.*;
 import com.example.ticketing.dto.user.UserResponse;
+import com.example.ticketing.exception.UnauthorizedException;
 import com.example.ticketing.oauth.GoogleOAuthClient;
 import com.example.ticketing.oauth.OAuthClient;
 import com.example.ticketing.oauth.OAuthUserInfo;
@@ -30,7 +28,7 @@ public class AuthService {
     private final RefreshTokenStore refreshTokenStore;
 
     // 로그인
-    public LoginResponse login(Provider provider, LoginRequest request) {
+    public LoginResult login(Provider provider, LoginRequest request) {
 
         // Authorization Code로 Google Access Token 받기
         // Google Access Token으로 사용자 정보 조회
@@ -73,27 +71,23 @@ public class AuthService {
         );
 
         // Access Token + Refresh Token 응답
-        return new LoginResponse(
+        return new LoginResult(
                 accessToken,
                 refreshToken
         );
     }
 
-
     // Access Token 재발급
-    public TokenResponse refreshAccessToken(RefreshRequest request) {
-
-        // Refresh Token 추출
-        String refreshToken = request.refreshToken();
+    public TokenResponse refreshAccessToken(String refreshToken) {
 
         // Refresh Token 유효성 검증
         if (!jwtTokenProvider.validateToken(refreshToken)) {
-            throw new IllegalArgumentException(
+            throw new UnauthorizedException(
                     "유효하지 않은 Refresh Token입니다."
             );
         }
         if (!jwtTokenProvider.isRefreshToken(refreshToken)) {
-            throw new IllegalArgumentException(
+            throw new UnauthorizedException(
                     "Refresh Token이 아닙니다."
             );
         }
@@ -106,7 +100,7 @@ public class AuthService {
         if (savedRefreshToken == null
                 || !savedRefreshToken.equals(refreshToken)) {
 
-            throw new IllegalArgumentException(
+            throw new UnauthorizedException(
                     "Refresh Token이 일치하지 않습니다."
             );
         }

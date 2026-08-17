@@ -1,6 +1,7 @@
 package com.example.ticketing.dto.auth;
 
-public record RefreshRequest(
+public record LoginResult(
+        String accessToken,
         String refreshToken
 ) {
 }
