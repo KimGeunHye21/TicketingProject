@@ -1,53 +1,58 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
 
 import api from '../../api/api';
+import { useAuth } from '../../contexts/AuthContext';
+
 import '../../styles/auth.css';
 
-function LogoutPage() {
+
+function WithdrawPage() {
 
     const navigate = useNavigate();
+
+    const { setUser } = useAuth();
 
     const [loading, setLoading] =
         useState(false);
 
-    const { setUser } = useAuth();
 
-    const handleLogout = async () => {
+    const handleWithdraw = async () => {
 
         try {
 
             setLoading(true);
 
-            // 서버 로그아웃
-            await api.post('/auth/logout');
+            // 백엔드 회원 탈퇴 요청
+            await api.delete('/auth/withdraw');
 
-            // Access Token 삭제
+            // 프론트 Access Token 삭제
             sessionStorage.removeItem(
                 'accessToken'
             );
 
-            // 메인으로 이동 + React 상태 초기화
             window.location.replace('/');
 
         } catch (error) {
 
-            setLoading(false);
-
             console.error(
-                '로그아웃 실패:',
+                '회원 탈퇴 실패',
                 error
             );
 
             alert(
-                '로그아웃에 실패했습니다.'
+                '회원 탈퇴에 실패했습니다.'
             );
+
+        } finally {
+
+            setLoading(false);
         }
     };
 
 
     const handleCancel = () => {
+
         navigate('/');
     };
 
@@ -58,11 +63,13 @@ function LogoutPage() {
             <div className="logout-container">
 
                 <h1 className="logout-title">
-                    로그아웃
+                    회원 탈퇴
                 </h1>
 
                 <p className="logout-message">
-                    정말 로그아웃하시겠습니까?
+                    정말 회원 탈퇴하시겠습니까?
+                    <br />
+                    탈퇴한 회원 정보는 복구할 수 없습니다.
                 </p>
 
                 <div className="logout-buttons">
@@ -79,12 +86,12 @@ function LogoutPage() {
                     <button
                         type="button"
                         className="logout-confirm-button"
-                        onClick={handleLogout}
+                        onClick={handleWithdraw}
                         disabled={loading}
                     >
                         {loading
-                            ? '로그아웃 중...'
-                            : '로그아웃'}
+                            ? '탈퇴 처리 중...'
+                            : '회원 탈퇴'}
                     </button>
 
                 </div>
@@ -95,4 +102,5 @@ function LogoutPage() {
     );
 }
 
-export default LogoutPage;
+
+export default WithdrawPage;

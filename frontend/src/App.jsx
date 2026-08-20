@@ -6,6 +6,7 @@ import TermsPage from './pages/auth/TermsPage.jsx';
 import PrivacyPage from './pages/auth/PrivacyPage';
 import LogoutPage from './pages/auth/LogoutPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import WithdrawPage from './pages/auth/WithdrawPage';
 
 function App() {
     return (
@@ -45,6 +46,15 @@ function App() {
                 element={
                     <ProtectedRoute>
                         <LogoutPage />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/withdraw"
+                element={
+                    <ProtectedRoute>
+                        <WithdrawPage />
                     </ProtectedRoute>
                 }
             />

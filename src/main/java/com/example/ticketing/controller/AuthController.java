@@ -128,11 +128,28 @@ public class AuthController {
     ) {
         Long userId = userDetails.getUserId();
 
+        // 회원 탈퇴 처리
         authService.withdraw(userId);
 
-        return ResponseEntity.noContent().build();
-    }
+        // 브라우저의 Refresh Token Cookie 삭제
+        ResponseCookie deleteCookie =
+                ResponseCookie
+                        .from("refreshToken", "")
+                        .httpOnly(true)
+                        .secure(false)   // 로컬 개발
+                        .path("/")
+                        .maxAge(0)
+                        .sameSite("Lax")
+                        .build();
 
+        return ResponseEntity
+                .noContent()
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        deleteCookie.toString()
+                )
+                .build();
+    }
 
 }
 
