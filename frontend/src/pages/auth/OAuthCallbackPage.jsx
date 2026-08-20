@@ -24,12 +24,34 @@ function OAuthCallbackPage() {
         const login = async () => {
 
             try {
-                // 1. URL에서 authorizationCode 꺼내기
+                // 1. Callback URL의 파라미터 가져오기
                 const params =
                     new URLSearchParams(
                         window.location.search
                     );
 
+
+                // 2. OAuth state 검증
+                const returnedState =
+                    params.get('state');
+
+                const savedState =
+                    sessionStorage.getItem(
+                        'google_oauth_state'
+                    );
+
+                if (
+                    !returnedState ||
+                    !savedState ||
+                    returnedState !== savedState
+                ) {
+                    throw new Error(
+                        'OAuth state가 일치하지 않습니다.'
+                    );
+                }
+
+
+                // 3. Authorization Code 가져오기
                 const authorizationCode =
                     params.get('code');
 
@@ -40,7 +62,7 @@ function OAuthCallbackPage() {
                 }
 
 
-                // 2. LoginPage에서 저장했던 codeVerifier 가져오기
+                // 4. codeVerifier 가져오기
                 const codeVerifier =
                     sessionStorage.getItem(
                         'google_code_verifier'
@@ -53,22 +75,23 @@ function OAuthCallbackPage() {
                 }
 
 
-                // 3. Spring Boot 로그인 API 호출
+                // 5. 백엔드 로그인 API 호출
                 const response = await fetch(
                     `${import.meta.env.VITE_API_BASE_URL}/auth/login/GOOGLE`,
                     {
                         method: 'POST',
                         credentials: 'include',
+
                         headers: {
                             'Content-Type': 'application/json'
                         },
+
                         body: JSON.stringify({
                             authorizationCode,
                             codeVerifier
                         })
                     }
                 );
-
 
                 if (!response.ok) {
                     throw new Error(
@@ -77,24 +100,17 @@ function OAuthCallbackPage() {
                 }
 
 
-                // 4. JWT 받기
+                // 6. Access Token 저장
                 const data =
                     await response.json();
 
-
-                // 5. JWT 저장
                 sessionStorage.setItem(
                     'accessToken',
                     data.accessToken
                 );
 
 
-                // 6. 사용 완료한 codeVerifier 삭제
-                sessionStorage.removeItem(
-                    'google_code_verifier'
-                );
-
-                // 7. AuthContext 로그인 상태 갱신
+                // 7. 전역 로그인 상태 갱신
                 await checkAuth();
 
                 // 8. 메인 페이지 이동
@@ -107,6 +123,17 @@ function OAuthCallbackPage() {
                 alert('로그인에 실패했습니다.');
 
                 navigate('/login');
+
+            } finally {
+
+                // 9. OAuth 일회용 값 삭제
+                sessionStorage.removeItem(
+                    'google_code_verifier'
+                );
+
+                sessionStorage.removeItem(
+                    'google_oauth_state'
+                );
             }
         };
 

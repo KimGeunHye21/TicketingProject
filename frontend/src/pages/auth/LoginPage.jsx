@@ -88,13 +88,23 @@ function LoginPage() {
         const codeChallenge =
             await generateCodeChallenge(codeVerifier);
 
-        // 3. Callback에서 사용하기 위해 저장
+        // 3. OAuth 요청 위조 방지용 state 생성
+        const state =
+            crypto.randomUUID();
+
+
+        // 4. Callback에서 사용하기 위해 저장
         sessionStorage.setItem(
             'google_code_verifier',
             codeVerifier
         );
+        sessionStorage.setItem(
+            'google_oauth_state',
+            state
+        );
 
-        // 4. Google OAuth 요청 정보
+
+        // 5. Google OAuth 요청 정보
         const params = new URLSearchParams({
 
             client_id:
@@ -109,11 +119,13 @@ function LoginPage() {
 
             code_challenge: codeChallenge,
 
-            code_challenge_method: 'S256'
+            code_challenge_method: 'S256',
+
+            state
         });
 
 
-        // 5. Google 로그인 페이지 이동
+        // 6. Google 로그인 페이지 이동
         window.location.href =
             `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
     };
