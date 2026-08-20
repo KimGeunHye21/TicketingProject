@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
 
 import api from '../../api/api';
 import '../../styles/auth.css';
@@ -12,7 +11,6 @@ function LogoutPage() {
     const [loading, setLoading] =
         useState(false);
 
-    const { setUser } = useAuth();
 
     const handleLogout = async () => {
 

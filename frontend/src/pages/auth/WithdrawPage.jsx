@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import api from '../../api/api';
-import { useAuth } from '../../contexts/AuthContext';
 
 import '../../styles/auth.css';
 
@@ -11,7 +10,6 @@ function WithdrawPage() {
 
     const navigate = useNavigate();
 
-    const { setUser } = useAuth();
 
     const [loading, setLoading] =
         useState(false);

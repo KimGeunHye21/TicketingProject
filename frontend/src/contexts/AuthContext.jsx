@@ -28,17 +28,25 @@ export function AuthProvider({ children }) {
     const checkAuth =
         useCallback(async () => {
 
-            // 액세스 토큰이 존재하는 경우에만 /auth/me 호출
-            const accessToken =
-                sessionStorage.getItem('accessToken');
-
-            if (!accessToken) {
-                setUser(null);
-                setLoading(false);
-                return;
-            }
+            setLoading(true);
 
             try {
+                let accessToken =
+                    sessionStorage.getItem('accessToken');
+
+                // Access Token은 없지만 Refresh Cookie가 있을 수 있음
+                if (!accessToken) {
+                    const refreshResponse =
+                        await api.post('/auth/refresh');
+
+                    accessToken =
+                        refreshResponse.data.accessToken;
+
+                    sessionStorage.setItem(
+                        'accessToken',
+                        accessToken
+                    );
+                }
 
                 const response =
                     await api.get('/auth/me');
@@ -46,11 +54,13 @@ export function AuthProvider({ children }) {
                 setUser(response.data);
 
             } catch (error) {
+                sessionStorage.removeItem(
+                    'accessToken'
+                );
 
                 setUser(null);
 
             } finally {
-
                 setLoading(false);
             }
 

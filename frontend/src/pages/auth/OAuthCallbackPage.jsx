@@ -113,7 +113,7 @@ function OAuthCallbackPage() {
 
         login();
 
-    }, [navigate]);
+    }, [navigate, checkAuth]);
 
 
     return (
