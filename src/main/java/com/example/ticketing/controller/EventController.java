@@ -33,13 +33,6 @@ public class EventController {
         return ResponseEntity.ok(eventService.getEvent(eventId));
     }
 
-    // 공연 일자 정보 조회
-    @GetMapping("/{eventId}/sessions")
-    public ResponseEntity<List<EventSessionResponse>> getSessions(
-            @PathVariable Long eventId
-    ) {
-        return ResponseEntity.ok(eventService.getSessions(eventId));
-    }
 
     // 공연 구역 배치도 조회
     @GetMapping("/{eventId}/sections")
@@ -61,6 +54,7 @@ public class EventController {
                 eventService.getSeats(eventId, sessionId, sectionId)
         );
     }
+
 
 
 }

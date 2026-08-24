@@ -104,20 +104,11 @@ public class EventService {
         );
     }
 
-    // 공연 회차 조회
-    public List<EventSessionResponse> getSessions(Long eventId) {
-        findEvent(eventId);
-
-        return eventSessionRepository
-                .findAllByEvent_IdOrderByStartAtAsc(eventId)
-                .stream()
-                .map(EventSessionResponse::from)
-                .toList();
-    }
-
     // 공연 구역 배치도 조회
     public SectionMapResponse getSectionMap(Long eventId, Long sessionId) {
         Event event = findEvent(eventId);
+
+        // TODO: 예매 오픈 시각이 지났는지
 
         List<SectionResponse> sections =
                 sectionRepository
@@ -145,7 +136,8 @@ public class EventService {
             Long sessionId,
             Long sectionId
     ) {
-        // TODO: sessionId가 eventId에 속한 회차인지 검증
+        // TODO: 예매 오픈 시각이 지났는지
+        // TODO: sessionId가 eventId에 속한 회차인지 검증 (try -catch로 처리?
         // TODO: sectionId가 eventId에 속한 구역인지 검증
         // TODO: DB의 RESERVED 상태와 Redis의 임시 선점 상태를 함께 조회
         // TODO: 폴링, SSE 또는 WebSocket 중 실시간 갱신 방식을 결정

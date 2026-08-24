@@ -60,6 +60,7 @@ public class SecurityConfig {
                         ).permitAll()
 
                         // 로그인 필요
+                        // TODO: 예매 관련 url 추가
                         .requestMatchers(
                                 "/auth/me",
                                 "/auth/logout",
