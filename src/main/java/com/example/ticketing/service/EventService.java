@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -52,7 +53,40 @@ public class EventService {
         );
 
         return eventRepository.findAll(pageable)
-                .map(EventSummaryResponse::from);
+                .map(event -> {
+
+                    LocalDate startDate =
+                            eventSessionRepository
+                                    .findFirstByEvent_IdOrderByStartAtAsc(
+                                            event.getId()
+                                    )
+                                    .map(session ->
+                                            session.getStartAt().toLocalDate()
+                                    )
+                                    .orElse(null);
+
+                    LocalDate endDate =
+                            eventSessionRepository
+                                    .findFirstByEvent_IdOrderByStartAtDesc(
+                                            event.getId()
+                                    )
+                                    .map(session ->
+                                            session.getStartAt().toLocalDate()
+                                    )
+                                    .orElse(null);
+
+                    // 공연일이 하루뿐이면 종료일은 보내지 않음
+                    if (startDate != null &&
+                            startDate.equals(endDate)) {
+                        endDate = null;
+                    }
+
+                    return EventSummaryResponse.from(
+                            event,
+                            startDate,
+                            endDate
+                    );
+                });
     }
 
     // 공연 상세정보 조회

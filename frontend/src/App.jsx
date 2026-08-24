@@ -7,6 +7,7 @@ import PrivacyPage from './pages/auth/PrivacyPage';
 import LogoutPage from './pages/auth/LogoutPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import WithdrawPage from './pages/auth/WithdrawPage';
+import EventListPage from './pages/event/EventListPage';
 
 function App() {
     return (
@@ -16,7 +17,7 @@ function App() {
 
             <Route
                 path="/"
-                element={<h1>메인 페이지</h1>}
+                element={<EventListPage />}
             />
 
             <Route
@@ -37,6 +38,12 @@ function App() {
             <Route
                 path="/auth/privacy"
                 element={<PrivacyPage />}
+            />
+
+            {/*  공연 */}
+            <Route
+                path="/events"
+                element={<EventListPage />}
             />
 
             {/* 로그인 필요 */}
