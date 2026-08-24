@@ -44,9 +44,10 @@ public class EventController {
     // 공연 구역 배치도 조회
     @GetMapping("/{eventId}/sections")
     public ResponseEntity<SectionMapResponse> getSections(
-            @PathVariable Long eventId
+            @PathVariable Long eventId,
+            @PathVariable Long sessionId
     ) {
-        return ResponseEntity.ok(eventService.getSectionMap(eventId));
+        return ResponseEntity.ok(eventService.getSectionMap(eventId, sessionId));
     }
 
     // 공연 좌석 정보 조회
