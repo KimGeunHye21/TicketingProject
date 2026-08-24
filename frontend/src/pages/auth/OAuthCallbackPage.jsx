@@ -113,8 +113,23 @@ function OAuthCallbackPage() {
                 // 7. 전역 로그인 상태 갱신
                 await checkAuth();
 
-                // 8. 메인 페이지 이동
-                navigate('/');
+
+                // 8. 로그인 전 페이지로 이동
+                const returnTo =
+                    sessionStorage.getItem(
+                        'login_return_to'
+                    );
+
+                sessionStorage.removeItem(
+                    'login_return_to'
+                );
+
+                navigate(
+                    returnTo || '/',
+                    {
+                        replace: true
+                    }
+                );
 
             } catch (error) {
 

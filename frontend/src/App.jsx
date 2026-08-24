@@ -8,6 +8,7 @@ import LogoutPage from './pages/auth/LogoutPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import WithdrawPage from './pages/auth/WithdrawPage';
 import EventListPage from './pages/event/EventListPage';
+import EventDetailPage from './pages/event/EventDetailPage';
 
 function App() {
     return (
@@ -40,11 +41,19 @@ function App() {
                 element={<PrivacyPage />}
             />
 
+
             {/*  공연 */}
             <Route
                 path="/events"
                 element={<EventListPage />}
             />
+
+            <Route
+                path="/events/:eventId"
+                element={<EventDetailPage />}
+            />
+
+
 
             {/* 로그인 필요 */}
 
