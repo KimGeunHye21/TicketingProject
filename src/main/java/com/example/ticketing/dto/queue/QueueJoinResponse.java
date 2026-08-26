@@ -1,7 +1,7 @@
 package com.example.ticketing.dto.queue;
 
-import com.example.ticketing.queue.QueueStatus;
-import com.example.ticketing.queue.QueueTicket;
+import com.example.ticketing.queue.domain.QueueStatus;
+import com.example.ticketing.queue.domain.QueueTicket;
 
 public record QueueJoinResponse(
         long waitingNumber,

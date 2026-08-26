@@ -1,6 +1,8 @@
 package com.example.ticketing.queue;
 
 import com.example.ticketing.exception.QueueUnavailableException;
+import com.example.ticketing.queue.domain.QueueStatus;
+import com.example.ticketing.queue.domain.QueueTicket;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -42,7 +44,7 @@ public class QueueRedisStore {
 
                         -- WAITING 또는 READY 상태이면 아직 사용할 수 있는 활성 티켓
                         if existingStatus == 'WAITING'
-                            or existingStatus == 'READY' then
+                            then
 
                             -- 기존 대기 순번 조회
                             local existingWaitingNumber =

@@ -1,4 +1,4 @@
-package com.example.ticketing.queue;
+package com.example.ticketing.queue.domain;
 
 import java.time.LocalDateTime;
 

@@ -7,7 +7,7 @@ import com.example.ticketing.exception.BookingNotOpenException;
 import com.example.ticketing.exception.EventNotFoundException;
 import com.example.ticketing.exception.EventSessionNotFoundException;
 import com.example.ticketing.queue.QueueRedisStore;
-import com.example.ticketing.queue.QueueTicket;
+import com.example.ticketing.queue.domain.QueueTicket;
 import com.example.ticketing.repository.EventRepository;
 import com.example.ticketing.repository.EventSessionRepository;
 import com.example.ticketing.repository.SeatInstanceRepository;

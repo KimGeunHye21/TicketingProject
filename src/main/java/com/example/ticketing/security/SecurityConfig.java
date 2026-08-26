@@ -64,7 +64,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/auth/me",
                                 "/auth/logout",
-                                "/auth/withdraw"
+                                "/auth/withdraw",
+                                "/queue/events/*/sessions/*"
                         ).authenticated()
 
                         // 아직 다른 API 정책은 안 정했으므로 허용
