@@ -11,6 +11,10 @@ public interface EventSessionRepository
 
     List<EventSession> findAllByEvent_IdOrderByStartAtAsc(Long eventId);
 
+    Optional<EventSession> findByIdAndEvent_Id(
+            Long sessionId,
+            Long eventId
+    );
 
     // 이벤트 시작/종료 날자를 가져옴
     Optional<EventSession>
