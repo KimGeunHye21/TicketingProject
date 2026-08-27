@@ -1,5 +1,6 @@
 package com.example.ticketing.queue.domain;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 public record QueueTicket(
@@ -9,7 +10,7 @@ public record QueueTicket(
         Long sessionId,
         long waitingNumber,
         QueueStatus status,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {
 
     public static QueueTicket waiting(
@@ -17,7 +18,7 @@ public record QueueTicket(
             Long userId,
             Long eventId,
             Long sessionId,
-            LocalDateTime createdAt
+            Instant createdAt
     ) {
         return new QueueTicket(
                 queueTicketId,

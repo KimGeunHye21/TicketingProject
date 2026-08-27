@@ -3,20 +3,24 @@ package com.example.ticketing.service;
 import com.example.ticketing.domain.Event;
 import com.example.ticketing.domain.EventSession;
 import com.example.ticketing.dto.queue.QueueJoinResponse;
-import com.example.ticketing.exception.BookingNotOpenException;
-import com.example.ticketing.exception.EventNotFoundException;
-import com.example.ticketing.exception.EventSessionNotFoundException;
+import com.example.ticketing.dto.queue.QueueStatusResponse;
+import com.example.ticketing.exception.*;
 import com.example.ticketing.queue.QueueRedisStore;
+import com.example.ticketing.queue.domain.QueueStatus;
 import com.example.ticketing.queue.domain.QueueTicket;
+import com.example.ticketing.queue.dto.AdmissionToken;
+import com.example.ticketing.queue.dto.QueueStatusResult;
+import com.example.ticketing.queue.dto.QueueStatusSnapshot;
 import com.example.ticketing.repository.EventRepository;
 import com.example.ticketing.repository.EventSessionRepository;
-import com.example.ticketing.repository.SeatInstanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -25,12 +29,14 @@ import java.util.UUID;
 public class QueueService {
 
     private static final Duration QUEUE_GRACE_PERIOD = Duration.ofHours(1);
+    // 매 상태 조회마다 heartbeat를 쓰지 않도록 하는 최소 간격
+    private static final Duration HEARTBEAT_REFRESH_INTERVAL = Duration.ofSeconds(15);
 
     private final EventRepository eventRepository;
     private final EventSessionRepository eventSessionRepository;
-    private final SeatInstanceRepository seatInstanceRepository;
     private final QueueRedisStore queueRedisStore;
 
+    // 대기열 등록
     public QueueJoinResponse joinQueue(
             Long userId,
             Long eventId,
@@ -47,19 +53,20 @@ public class QueueService {
                 ));
 
         // 유효한 예매 시간 이내인지
-        LocalDateTime now = LocalDateTime.now();
-        validateBookingTime(event, session, now);
+        LocalDateTime bookingNow = LocalDateTime.now();
+        validateBookingTime(event, session, bookingNow);
 
 
         // 동일 사용자·동일 회차의 활성 대기열 티켓이 있으면 그대로 반환
         // 없으면 새로운 대기열 티켓 생성
+        Instant queueNow = Instant.now();
         return queueRedisStore.findActiveTicket(userId, sessionId)
                 .map(QueueJoinResponse::from)
                 .orElseGet(() -> registerQueueTicket(
                         userId,
                         eventId,
                         session,
-                        now
+                        queueNow
                 ));
     }
 
@@ -81,23 +88,22 @@ public class QueueService {
         }
     }
 
-
     private QueueJoinResponse registerQueueTicket(
             Long userId,
             Long eventId,
             EventSession session,
-            LocalDateTime now
+            Instant queueNow
     ) {
         QueueTicket candidate = QueueTicket.waiting(
                 UUID.randomUUID().toString(), // 예측 불가능한 queueTicketId 발급
                 userId,
                 eventId,
                 session.getId(),
-                now
+                queueNow
         );
 
         Duration expiration = Duration.between(
-                now,
+                queueNow,
                 session.getStartAt()
         ).plus(QUEUE_GRACE_PERIOD);
 
@@ -108,5 +114,241 @@ public class QueueService {
         );
 
         return QueueJoinResponse.from(savedTicket);
+    }
+
+
+    // 대기열 상태 조회
+    public QueueStatusResult getQueueStatus(
+            Long userId,
+            Long eventId,
+            Long sessionId
+    ) {
+        QueueTicket ticket = queueRedisStore
+                .findTicketByUser(userId, sessionId)
+                .orElseThrow(QueueNotFoundException::new);
+
+        validateQueueTicketOwner(
+                ticket,
+                userId,
+                eventId,
+                sessionId
+        );
+
+        QueueStatusSnapshot snapshot =
+                queueRedisStore.getStatusSnapshot(
+                        sessionId,
+                        ticket.queueTicketId()
+                );
+
+        return createStatusResult(
+                ticket,
+                snapshot,
+                Instant.now()
+        );
+    }
+
+    private QueueStatusResult createStatusResult(
+            QueueTicket ticket,
+            QueueStatusSnapshot snapshot,
+            Instant now
+    ) {
+        return switch (snapshot.status()) {
+            case WAITING -> handleWaiting(
+                    ticket,
+                    snapshot,
+                    now
+            );
+
+            case SELECTING -> handleSelecting(
+                    ticket,
+                    snapshot,
+                    now
+            );
+
+            case CHECKOUT ->
+                    QueueStatusResult.withoutToken(
+                            QueueStatusResponse.checkout()
+                    );
+
+            case EXPIRED, CANCELLED ->
+                    QueueStatusResult.withoutToken(
+                            QueueStatusResponse.terminal(
+                                    snapshot.status()
+                            )
+                    );
+        };
+    }
+
+    private QueueStatusResult handleWaiting(
+            QueueTicket ticket,
+            QueueStatusSnapshot snapshot,
+            Instant now
+    ) {
+        Long aheadCount = snapshot.aheadCount();
+
+        if (aheadCount == null) {
+            // WAITING 상태와 ZSET 정보가 순간적으로 달라졌을 수 있으므로
+            // 상태를 한 번 다시 확인
+            QueueStatusSnapshot refreshedSnapshot =
+                    queueRedisStore.getStatusSnapshot(
+                            ticket.sessionId(),
+                            ticket.queueTicketId()
+                    );
+
+            // 재조회 결과 상태가 바뀌었다면 새 상태 기준으로 처리
+            if (refreshedSnapshot.status() != QueueStatus.WAITING) {
+                return createStatusResult(
+                        ticket,
+                        refreshedSnapshot,
+                        now
+                );
+            }
+
+            aheadCount = refreshedSnapshot.aheadCount();
+
+            // 재조회 후에도 WAITING인데 ZRANK가 없다면
+            // Redis 데이터가 일관되지 않은 상태
+            if (aheadCount == null) {
+                throw new QueueUnavailableException(
+                        new IllegalStateException(
+                                "WAITING 티켓의 ZRANK를 찾을 수 없습니다."
+                        )
+                );
+            }
+        }
+
+        /*
+         * 내부적으로 마지막 heartbeat 이후
+         * HEARTBEAT_REFRESH_INTERVAL 이상 지났을 때만 갱신
+         *
+         * 이 판단과 저장은 Redis에서 원자적으로 처리
+         */
+        queueRedisStore.refreshHeartbeatIfDue(
+                ticket.sessionId(),
+                ticket.queueTicketId(),
+                now,
+                HEARTBEAT_REFRESH_INTERVAL
+        );
+
+        long nextPollAfterMs =
+                calculateNextPollAfterMs(aheadCount);
+
+        QueueStatusResponse response =
+                QueueStatusResponse.waiting(
+                        aheadCount, // ZRANK 그대로 사용
+                        nextPollAfterMs
+                );
+
+        return QueueStatusResult.withoutToken(response);
+    }
+
+    private QueueStatusResult handleSelecting(
+            QueueTicket ticket,
+            QueueStatusSnapshot snapshot,
+            Instant now
+    ) {
+        Instant selectingExpiresAt =
+                snapshot.selectingExpiresAt();
+
+        if (selectingExpiresAt == null) {
+            throw new QueueUnavailableException(
+                    new IllegalStateException(
+                            "SELECTING 상태에 selectingExpiresAt이 없습니다."
+                    )
+            );
+        }
+
+        // 만료 시각과 동일하거나 이미 지났다면 EXPIRED 전환 시도
+        if (!now.isBefore(selectingExpiresAt)) {
+            queueRedisStore.expireSelectingIfCurrent(
+                    ticket.sessionId(),
+                    ticket.queueTicketId(),
+                    now
+            );
+
+            // CHECKOUT 전환 등 다른 요청과 경합했을 수 있으므로
+            // Redis의 최종 상태를 다시 조회
+            QueueStatusSnapshot refreshedSnapshot =
+                    queueRedisStore.getStatusSnapshot(
+                            ticket.sessionId(),
+                            ticket.queueTicketId()
+                    );
+
+            if (refreshedSnapshot.status()
+                    == QueueStatus.SELECTING) {
+                throw new QueueUnavailableException(
+                        new IllegalStateException(
+                                "만료된 SELECTING 티켓의 상태 전환에 실패했습니다."
+                        )
+                );
+            }
+
+            return createStatusResult(
+                    ticket,
+                    refreshedSnapshot,
+                    Instant.now()
+            );
+        }
+
+        /*
+         * 기존에 발급한 유효한 토큰이 있으면 재사용합니다.
+         * 새 토큰을 발급해도 selectingExpiresAt은 변경하지 않습니다.
+         */
+        AdmissionToken admissionToken =
+                admissionTokenService.getOrCreate(
+                        ticket,
+                        selectingExpiresAt
+                );
+
+        QueueStatusResponse response =
+                QueueStatusResponse.selecting(
+                        selectingExpiresAt
+                );
+
+        return QueueStatusResult.withToken(
+                response,
+                admissionToken
+        );
+    }
+
+    private void validateQueueTicketOwner(
+            QueueTicket ticket,
+            Long userId,
+            Long eventId,
+            Long sessionId
+    ) {
+        boolean sameUser = Objects.equals(
+                ticket.userId(),
+                userId
+        );
+
+        boolean sameEvent = Objects.equals(
+                ticket.eventId(),
+                eventId
+        );
+
+        boolean sameSession = Objects.equals(
+                ticket.sessionId(),
+                sessionId
+        );
+
+        if (!sameUser || !sameEvent || !sameSession) {
+            // 티켓 존재 여부나 실제 소유자를 외부에 노출하지 않음
+            throw new QueueNotFoundException();
+        }
+    }
+
+    private long calculateNextPollAfterMs(
+            long aheadCount
+    ) {
+        if (aheadCount >= 1_000L) {
+            return 10_000L;
+        }
+
+        if (aheadCount >= 100L) {
+            return 5_000L;
+        }
+
+        return 2_000L;
     }
 }

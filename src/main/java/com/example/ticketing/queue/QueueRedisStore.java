@@ -10,6 +10,7 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +45,8 @@ public class QueueRedisStore {
 
                         -- WAITING 또는 READY 상태이면 아직 사용할 수 있는 활성 티켓
                         if existingStatus == 'WAITING'
-                            then
+                            or existingStatus == 'SELECTING'
+                            or existingStatus == 'CHECKOUT' then
 
                             -- 기존 대기 순번 조회
                             local existingWaitingNumber =
@@ -315,7 +317,7 @@ public class QueueRedisStore {
                 candidate.sessionId(),
                 Long.parseLong(fields[1]),
                 QueueStatus.valueOf(fields[2]),
-                LocalDateTime.parse(fields[3])
+                Instant.parse(fields[3])
         );
     }
 
@@ -330,7 +332,7 @@ public class QueueRedisStore {
                 Long.valueOf(value(values, "sessionId")),
                 Long.parseLong(value(values, "waitingNumber")),
                 QueueStatus.valueOf(value(values, "status")),
-                LocalDateTime.parse(value(values, "createdAt"))
+                Instant.parse(value(values, "createdAt"))
         );
     }
 
