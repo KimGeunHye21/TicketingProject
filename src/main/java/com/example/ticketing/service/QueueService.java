@@ -127,6 +127,7 @@ public class QueueService {
                 .findTicketByUser(userId, sessionId)
                 .orElseThrow(QueueNotFoundException::new);
 
+        // 정보가 존재하는지 확인
         validateQueueTicketOwner(
                 ticket,
                 userId,
@@ -134,6 +135,7 @@ public class QueueService {
                 sessionId
         );
 
+        // 현재 status조회 (selecting상태라면 대기 순위도)
         QueueStatusSnapshot snapshot =
                 queueRedisStore.getStatusSnapshot(
                         sessionId,
@@ -147,6 +149,8 @@ public class QueueService {
         );
     }
 
+
+    // 대기열 상태 조회 결과 -> 반환값 생성
     private QueueStatusResult createStatusResult(
             QueueTicket ticket,
             QueueStatusSnapshot snapshot,
@@ -186,48 +190,22 @@ public class QueueService {
     ) {
         Long aheadCount = snapshot.aheadCount();
 
+        // Redis 데이터가 일관되지 않은 상태
         if (aheadCount == null) {
-            // WAITING 상태와 ZSET 정보가 순간적으로 달라졌을 수 있으므로
-            // 상태를 한 번 다시 확인
-            QueueStatusSnapshot refreshedSnapshot =
-                    queueRedisStore.getStatusSnapshot(
-                            ticket.sessionId(),
-                            ticket.queueTicketId()
-                    );
-
-            // 재조회 결과 상태가 바뀌었다면 새 상태 기준으로 처리
-            if (refreshedSnapshot.status() != QueueStatus.WAITING) {
-                return createStatusResult(
-                        ticket,
-                        refreshedSnapshot,
-                        now
-                );
-            }
-
-            aheadCount = refreshedSnapshot.aheadCount();
-
-            // 재조회 후에도 WAITING인데 ZRANK가 없다면
-            // Redis 데이터가 일관되지 않은 상태
-            if (aheadCount == null) {
-                throw new QueueUnavailableException(
-                        new IllegalStateException(
-                                "WAITING 티켓의 ZRANK를 찾을 수 없습니다."
-                        )
-                );
-            }
+            throw new QueueUnavailableException(
+                    new IllegalStateException(
+                            "WAITING 티켓의 ZRANK를 찾을 수 없습니다."
+                    )
+            );
         }
 
-        /*
-         * 내부적으로 마지막 heartbeat 이후
-         * HEARTBEAT_REFRESH_INTERVAL 이상 지났을 때만 갱신
-         *
-         * 이 판단과 저장은 Redis에서 원자적으로 처리
-         */
-        queueRedisStore.refreshHeartbeatIfDue(
+
+        // 내부적으로 마지막 heartbeat 이후
+        //HEARTBEAT_REFRESH_INTERVAL 이상 지났을 때만 갱신함
+        queueRedisStore.touchWaitingHeartbeatIfNecessary(
                 ticket.sessionId(),
                 ticket.queueTicketId(),
-                now,
-                HEARTBEAT_REFRESH_INTERVAL
+                now
         );
 
         long nextPollAfterMs =
@@ -247,8 +225,7 @@ public class QueueService {
             QueueStatusSnapshot snapshot,
             Instant now
     ) {
-        Instant selectingExpiresAt =
-                snapshot.selectingExpiresAt();
+        Instant selectingExpiresAt = snapshot.selectingExpiresAt();
 
         if (selectingExpiresAt == null) {
             throw new QueueUnavailableException(
@@ -261,6 +238,7 @@ public class QueueService {
         // 만료 시각과 동일하거나 이미 지났다면 EXPIRED 전환 시도
         if (!now.isBefore(selectingExpiresAt)) {
             queueRedisStore.expireSelectingIfCurrent(
+                    ticket.userId(),
                     ticket.sessionId(),
                     ticket.queueTicketId(),
                     now
@@ -290,10 +268,8 @@ public class QueueService {
             );
         }
 
-        /*
-         * 기존에 발급한 유효한 토큰이 있으면 재사용합니다.
-         * 새 토큰을 발급해도 selectingExpiresAt은 변경하지 않습니다.
-         */
+        // 만료 시각 전이라면
+        // 예매 진행 페이지에 접근 가능한 토큰 발급
         AdmissionToken admissionToken =
                 admissionTokenService.getOrCreate(
                         ticket,

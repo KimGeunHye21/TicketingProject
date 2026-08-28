@@ -61,4 +61,11 @@ public final class QueueRedisKey {
                 + sessionId
                 + "}:";
     }
+
+    /**
+     * WAITING 사용자의 마지막 heartbeat 시간 저장
+     */
+    public static String waitingHeartbeat(Long sessionId) {
+        return prefix(sessionId) + "heartbeat";
+    }
 }

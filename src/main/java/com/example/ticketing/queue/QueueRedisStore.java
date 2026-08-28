@@ -8,18 +8,27 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
+import com.example.ticketing.queue.dto.QueueStatusSnapshot;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+
 @Component
 @RequiredArgsConstructor
 public class QueueRedisStore {
+    // heartbeat는 polling마다 쓰지 않고 30초마다 갱신
+    private static final Duration HEARTBEAT_WRITE_INTERVAL = Duration.ofSeconds(30);
+    // EXPIRED, CANCELLED 상태 보존 기간
+    private static final Duration TERMINAL_RETENTION = Duration.ofMinutes(10);
 
+    // Redis 명령 실행용 객체
+    private final StringRedisTemplate redisTemplate;
+
+    // Lua: 대기열 추가 스크립트
     private static final DefaultRedisScript<String> JOIN_SCRIPT =
             new DefaultRedisScript<>("""
                     
@@ -43,7 +52,7 @@ public class QueueRedisStore {
                                 'status'
                             )
 
-                        -- WAITING 또는 READY 상태이면 아직 사용할 수 있는 활성 티켓
+                        -- WAITING, SELECTING, CHECKOUT은 아직 처리 중인 활성 티켓
                         if existingStatus == 'WAITING'
                             or existingStatus == 'SELECTING'
                             or existingStatus == 'CHECKOUT' then
@@ -172,56 +181,52 @@ public class QueueRedisStore {
                         .. ARGV[6]
                     """, String.class);
 
-    // Redis 명령 실행용 객체
-    private final StringRedisTemplate redisTemplate;
-
     /**
-     * 동일 사용자·동일 회차의 활성 티켓을 조회한다.
+     * 동일 사용자·동일 회차의 티켓을 조회한다.
      */
+    // 등록 시 활성 티켓만 반환
     public Optional<QueueTicket> findActiveTicket(
             Long userId,
             Long sessionId
     ) {
+        return findTicketByUser(userId, sessionId)
+                .filter(ticket -> ticket.status().isActive());
+    }
+
+    // 종료 상태를 포함한 모든 티켓 조회
+    public Optional<QueueTicket> findTicketByUser(
+            Long userId,
+            Long sessionId
+    ) {
         try {
-            // 세션id+사용자id -> 대기열 티켓을 가지고 있는지 매핑
             String queueTicketId =
-                    redisTemplate.opsForValue()
-                            .get(
-                                    QueueRedisKey.userTicket(
-                                            sessionId,
-                                            userId
-                                    )
-                            );
+                    redisTemplate.opsForValue().get(
+                            QueueRedisKey.userTicket(
+                                    sessionId,
+                                    userId
+                            )
+                    );
 
             if (queueTicketId == null) {
                 return Optional.empty();
             }
 
-            // queueTicketId를 이용해서 QueueTicket Hash를 조회
             Map<Object, Object> values =
-                    redisTemplate.opsForHash()
-                            .entries(
-                                    QueueRedisKey.ticket(
-                                            sessionId,
-                                            queueTicketId
-                                    )
-                            );
+                    redisTemplate.opsForHash().entries(
+                            QueueRedisKey.ticket(
+                                    sessionId,
+                                    queueTicketId
+                            )
+                    );
 
-            // 티켓 Hash가 없는 유효하지 않은 대기열 티켓인 경우 empty
             if (values.isEmpty()) {
                 return Optional.empty();
             }
 
-            // Redis Hash 데이터를 Java QueueTicket 객체로 변환
-            QueueTicket ticket = toQueueTicket(values);
-
-            // active상태가 아닌 경우 empty
-            if (!ticket.status().isActive()) {
-                return Optional.empty();
-            }
-
-            // 대기열 티켓 반환
-            return Optional.of(ticket);
+            // 상태 필터링을 하지 않으므로
+            // WAITING, SELECTING, CHECKOUT,
+            // EXPIRED, CANCELLED 모두 반환
+            return Optional.of(toQueueTicket(values));
 
         } catch (DataAccessException | IllegalArgumentException exception) {
             throw new QueueUnavailableException(exception);
@@ -349,5 +354,411 @@ public class QueueRedisStore {
         }
 
         return value.toString();
+    }
+
+
+
+
+    // Lua: 대기열 상태와 대기열 순번 조회
+    private static final DefaultRedisScript<String>
+            STATUS_SNAPSHOT_SCRIPT =
+            new DefaultRedisScript<>("""
+                local status =
+                    redis.call(
+                        'HGET',
+                        KEYS[1],
+                        'status'
+                    )
+
+                if not status then
+                    return '__TICKET_MISSING__'
+                end
+
+                if status == 'WAITING' then
+                    local rank =
+                        redis.call(
+                            'ZRANK',
+                            KEYS[2],
+                            ARGV[1]
+                        )
+
+                    if not rank then
+                        return '__WAITING_RANK_MISSING__'
+                    end
+
+                    return status
+                        .. '|'
+                        .. rank
+                        .. '|'
+                end
+
+                if status == 'SELECTING' then
+                    local selectingExpiresAt =
+                        redis.call(
+                            'HGET',
+                            KEYS[1],
+                            'selectingExpiresAt'
+                        )
+
+                    return status
+                        .. '||'
+                        .. (selectingExpiresAt or '')
+                end
+
+                return status .. '||'
+                """, String.class);
+
+    /**
+     * 현재 상태, 대기열 순번, SELECTING 만료시간 조회
+     */
+    public QueueStatusSnapshot getStatusSnapshot(
+            Long sessionId,
+            String queueTicketId
+    ) {
+        try {
+            String result = redisTemplate.execute(
+                    STATUS_SNAPSHOT_SCRIPT,
+                    List.of(
+                            QueueRedisKey.ticket( // KEYS[1]
+                                    sessionId,
+                                    queueTicketId
+                            ),
+                            QueueRedisKey.waitingQueue(sessionId) // KEYS[2]
+                    ),
+                    queueTicketId // ARGV[1]
+            );
+
+            return parseStatusSnapshot(result);
+
+        } catch (DataAccessException | IllegalArgumentException exception) {
+            throw new QueueUnavailableException(exception);
+        }
+    }
+
+    private QueueStatusSnapshot parseStatusSnapshot(
+            String result
+    ) {
+        if (result == null) {
+            throw new IllegalArgumentException(
+                    "Redis 상태 조회 결과가 없습니다."
+            );
+        }
+
+        if ("__TICKET_MISSING__".equals(result)) {
+            throw new IllegalArgumentException(
+                    "Redis 티켓 Hash가 없습니다."
+            );
+        }
+
+        if ("__WAITING_RANK_MISSING__".equals(result)) {
+            throw new IllegalArgumentException(
+                    "WAITING 티켓이 대기열 ZSET에 없습니다."
+            );
+        }
+
+        String[] fields = result.split("\\|", -1);
+
+        if (fields.length != 3) {
+            throw new IllegalArgumentException(
+                    "Redis 상태 조회 결과 형식이 올바르지 않습니다."
+            );
+        }
+
+        QueueStatus status = QueueStatus.valueOf(fields[0]);
+        Long aheadCount = fields[1].isBlank() ? null : Long.valueOf(fields[1]);
+        Instant selectingExpiresAt = fields[2].isBlank() ? null : Instant.parse(fields[2]);
+
+        return new QueueStatusSnapshot(
+                status,
+                aheadCount,
+                selectingExpiresAt
+        );
+    }
+
+
+    // Lua: WAITING 상태 확인과 heartbeat 갱신 처리
+    private static final DefaultRedisScript<Long>
+            TOUCH_HEARTBEAT_SCRIPT =
+            new DefaultRedisScript<>("""
+                local status =
+                    redis.call(
+                        'HGET',
+                        KEYS[1],
+                        'status'
+                    )
+
+                -- WAITING이 아니면 heartbeat를 갱신하지 않음
+                if status ~= 'WAITING' then
+                    return 0
+                end
+
+                -- 마지막 heartbeat시각을 조회
+                local lastHeartbeat =
+                    redis.call(
+                        'ZSCORE',
+                        KEYS[2],
+                        ARGV[1]
+                    )
+
+                local nowMillis =
+                    tonumber(ARGV[2])
+
+                local intervalMillis =
+                    tonumber(ARGV[3])
+
+                -- 마지막 갱신 후 30초가 지나지 않았다면 쓰지 않음
+                if lastHeartbeat
+                    and nowMillis - tonumber(lastHeartbeat)
+                        < intervalMillis then
+                    return 0
+                end
+                -- Sorted Set에 heartbeat 시간을 갱신
+                -- queue:{sessionId}:heartbeat
+                redis.call(
+                    'ZADD',
+                    KEYS[2],
+                    nowMillis,
+                    ARGV[1]
+                )
+
+                --heartbeat 데이터가 티켓보다 먼저 Redis에서 없어지지 않게 TTL설정
+                -- heartbeat ZSET도 티켓과 비슷한 시점에 만료
+                local ticketTtl =
+                    redis.call('PTTL', KEYS[1])
+
+                -- 해당 티켓에 정상적인 만료 시간이 설정되어있으면
+                if ticketTtl > 0 then
+                    local heartbeatTtl =
+                        redis.call('PTTL', KEYS[2])
+
+                    -- heartbeat가 티켓보다 먼저 만료될 예정이라면
+                    if heartbeatTtl < ticketTtl then
+                        -- heartbeat ZSET의 TTL을 티켓의 남은 TTL만큼 연장
+                        redis.call(
+                            'PEXPIRE',
+                            KEYS[2],
+                            ticketTtl
+                        )
+                    end
+                end
+
+                return 1
+                """, Long.class);
+
+
+    /**
+     * 마지막 쓰기 후 30초가 지난 경우에만 heartbeat 갱신
+     */
+    public boolean touchWaitingHeartbeatIfNecessary(
+            Long sessionId,
+            String queueTicketId,
+            Instant now
+    ) {
+        try {
+            Long updated = redisTemplate.execute(
+                    TOUCH_HEARTBEAT_SCRIPT,
+                    List.of(
+                            QueueRedisKey.ticket(
+                                    sessionId,
+                                    queueTicketId
+                            ),
+                            QueueRedisKey.waitingHeartbeat(
+                                    sessionId
+                            )
+                    ),
+                    queueTicketId,
+                    Long.toString(now.toEpochMilli()), // ARGV[2]: 현재 시간
+                    Long.toString(
+                            HEARTBEAT_WRITE_INTERVAL.toMillis() // ARGV[3]: heartbeat를 최소 몇 ms 간격으로 갱신할지
+                    )
+            );
+
+            return updated != null && updated == 1L;
+
+        } catch (DataAccessException | IllegalArgumentException exception) {
+            throw new QueueUnavailableException(exception);
+        }
+    }
+
+
+    // Lua: 종료상태 (EXPIRED, CANCELLED) 전환 및 보존 TTL 설정
+    private static final DefaultRedisScript<Long>
+            TERMINAL_TRANSITION_SCRIPT =
+            new DefaultRedisScript<>("""
+                local currentStatus =
+                    redis.call(
+                        'HGET',
+                        KEYS[1],
+                        'status'
+                    )
+
+                if not currentStatus then
+                    return 0
+                end
+
+                local targetStatus = ARGV[2]
+
+                -- EXPIRED는 SELECTING 상태에서만 전환
+                if targetStatus == 'EXPIRED' then
+                    if currentStatus ~= 'SELECTING' then
+                        return 0
+                    end
+
+                -- CANCELLED는 활성 상태에서만 전환
+                elseif targetStatus == 'CANCELLED' then
+                    if currentStatus ~= 'WAITING'
+                        and currentStatus ~= 'SELECTING'
+                        and currentStatus ~= 'CHECKOUT' then
+                        return 0
+                    end
+                else
+                    return -1
+                end
+
+
+                -- queue:{sessionId}:ticket:{queueTicketId}에서
+                -- status 필드 내용 변경, terminalAt 필드 추가
+                redis.call(
+                    'HSET',
+                    KEYS[1],
+                    'status', targetStatus,
+                    'terminalAt', ARGV[3]
+                )
+
+                -- queue:{sessionId}:ticket:{queueTicketId}에서 selectingExpiresAt 필드를 삭제
+                redis.call(
+                    'HDEL',
+                    KEYS[1],
+                    'selectingExpiresAt'
+                )
+
+
+                -- WAITING 상태였을 가능성에 대비해 대기열에서 티켓 제거
+                -- KEYS[3] = waitingQueue
+                redis.call(
+                    'ZREM',
+                    KEYS[3],
+                    ARGV[1]
+                )
+                -- KEYS[4] = waitingHeartbeat
+                redis.call(
+                    'ZREM',
+                    KEYS[4],
+                    ARGV[1]
+                )
+                
+
+                local retentionSeconds =
+                    tonumber(ARGV[4])
+
+                -- 종료 티켓 Hash 보존
+                redis.call(
+                    'EXPIRE',
+                    KEYS[1],
+                    retentionSeconds
+                )
+
+                -- 사용자 매핑이 현재 티켓을 가리킬 때만 보존 TTL 설정
+                local mappedTicketId =
+                    redis.call('GET', KEYS[2])
+
+                if mappedTicketId == ARGV[1] then
+                    redis.call(
+                        'EXPIRE',
+                        KEYS[2],
+                        retentionSeconds
+                    )
+                end
+
+                return 1
+                """, Long.class);
+
+    /**
+     * 상태를 종료상태로 변경 (만료or취소)
+     */
+    private boolean transitionToTerminal(
+            Long userId,
+            Long sessionId,
+            String queueTicketId,
+            QueueStatus targetStatus,
+            Instant now
+    ) {
+        try {
+            Long transitioned = redisTemplate.execute(
+                    TERMINAL_TRANSITION_SCRIPT,
+                    List.of(
+                            QueueRedisKey.ticket(
+                                    sessionId,
+                                    queueTicketId
+                            ),
+                            QueueRedisKey.userTicket(
+                                    sessionId,
+                                    userId
+                            ),
+                            QueueRedisKey.waitingQueue(
+                                    sessionId
+                            ),
+                            QueueRedisKey.waitingHeartbeat(
+                                    sessionId
+                            )
+                    ),
+                    queueTicketId,
+                    targetStatus.name(),
+                    now.toString(),
+                    Long.toString(
+                            TERMINAL_RETENTION.toSeconds()
+                    )
+            );
+
+            if (transitioned == null) {
+                throw new IllegalArgumentException(
+                        "Redis 종료 상태 전환 결과가 없습니다."
+                );
+            }
+
+            if (transitioned == -1L) {
+                throw new IllegalArgumentException(
+                        "지원하지 않는 종료 상태입니다: "
+                                + targetStatus
+                );
+            }
+
+            return transitioned == 1L;
+
+        } catch (DataAccessException | IllegalArgumentException exception) {
+            throw new QueueUnavailableException(exception);
+        }
+    }
+
+    // SELECTING이 끝난 경우 EXPIRED상태변경
+    public boolean expireSelectingIfCurrent(
+            Long userId,
+            Long sessionId,
+            String queueTicketId,
+            Instant now
+    ) {
+        return transitionToTerminal(
+                userId,
+                sessionId,
+                queueTicketId,
+                QueueStatus.EXPIRED,
+                now
+        );
+    }
+
+    // 활성 티켓 취소
+    public boolean cancelIfActive(
+            Long userId,
+            Long sessionId,
+            String queueTicketId,
+            Instant now
+    ) {
+        return transitionToTerminal(
+                userId,
+                sessionId,
+                queueTicketId,
+                QueueStatus.CANCELLED,
+                now
+        );
     }
 }

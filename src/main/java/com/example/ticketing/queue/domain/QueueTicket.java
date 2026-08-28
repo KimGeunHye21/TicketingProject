@@ -1,7 +1,6 @@
 package com.example.ticketing.queue.domain;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 
 public record QueueTicket(
         String queueTicketId,
