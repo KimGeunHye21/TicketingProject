@@ -72,7 +72,24 @@ public class QueueRedisStore {
                                     existingTicketKey,
                                     'createdAt'
                                 )
-
+                    
+                            -- SELECTING 시작 시각
+                            local existingSelectingStartedAt =
+                                redis.call(
+                                    'HGET',
+                                    existingTicketKey,
+                                    'selectingStartedAt'
+                                )
+                    
+                            -- SELECTING 만료 시각
+                            local existingSelectingExpiresAt =
+                                redis.call(
+                                    'HGET',
+                                    existingTicketKey,
+                                    'selectingExpiresAt'
+                                )
+                    
+                    
                             -- 필요한 데이터가 정상적으로 존재한다면 기존 티켓 정보를 반환
                             if existingWaitingNumber
                                 and existingCreatedAt then
@@ -84,6 +101,10 @@ public class QueueRedisStore {
                                     .. existingStatus
                                     .. '|'
                                     .. existingCreatedAt
+                                    .. '|'
+                                    .. (existingSelectingStartedAt or '')
+                                    .. '|'
+                                    .. (existingSelectingExpiresAt or '')
                             end
                         end
 
@@ -126,7 +147,7 @@ public class QueueRedisStore {
                         'waitingNumber', waitingNumber,
                         'status', 'WAITING',
                         'createdAt', ARGV[6]
-                    )
+                        )
 
 
                     -- =====================================================
@@ -173,12 +194,13 @@ public class QueueRedisStore {
                     -- 8. 생성한 티켓 정보 반환
                     -- =====================================================
                     
-                    -- ticketId|waitingNumber|WAITING|createdAt
+                    -- ticketId|waitingNumber|WAITING|createdAt|lastSeenAt|selectingStartedAt|selectingExpiresAt
                     return ARGV[2]
                         .. '|'
                         .. waitingNumber
                         .. '|WAITING|'
                         .. ARGV[6]
+                        .. '||'
                     """, String.class);
 
     /**
@@ -309,7 +331,7 @@ public class QueueRedisStore {
 
         String[] fields = result.split("\\|", -1);
 
-        if (fields.length != 4) {
+        if (fields.length != 6) {
             throw new IllegalArgumentException(
                     "Redis 대기열 등록 결과 형식이 올바르지 않습니다."
             );
@@ -322,7 +344,9 @@ public class QueueRedisStore {
                 candidate.sessionId(),
                 Long.parseLong(fields[1]),
                 QueueStatus.valueOf(fields[2]),
-                Instant.parse(fields[3])
+                Instant.parse(fields[3]),
+                optionalInstant(fields[4]),
+                optionalInstant(fields[5])
         );
     }
 
@@ -337,7 +361,9 @@ public class QueueRedisStore {
                 Long.valueOf(value(values, "sessionId")),
                 Long.parseLong(value(values, "waitingNumber")),
                 QueueStatus.valueOf(value(values, "status")),
-                Instant.parse(value(values, "createdAt"))
+                Instant.parse(value(values, "createdAt")),
+                optionalInstant(values, "selectingStartedAt"),
+                optionalInstant(values, "selectingExpiresAt")
         );
     }
 
@@ -356,7 +382,26 @@ public class QueueRedisStore {
         return value.toString();
     }
 
+    private Instant optionalInstant(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
 
+        return Instant.parse(value);
+    }
+
+    private Instant optionalInstant(
+            Map<Object, Object> values,
+            String key
+    ) {
+        Object value = values.get(key);
+
+        if (value == null || value.toString().isBlank()) {
+            return null;
+        }
+
+        return Instant.parse(value.toString());
+    }
 
 
     // Lua: 대기열 상태와 대기열 순번 조회
@@ -520,6 +565,7 @@ public class QueueRedisStore {
                     nowMillis,
                     ARGV[1]
                 )
+
 
                 --heartbeat 데이터가 티켓보다 먼저 Redis에서 없어지지 않게 TTL설정
                 -- heartbeat ZSET도 티켓과 비슷한 시점에 만료
