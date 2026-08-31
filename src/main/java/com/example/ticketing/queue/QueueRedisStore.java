@@ -194,7 +194,7 @@ public class QueueRedisStore {
                     -- 8. 생성한 티켓 정보 반환
                     -- =====================================================
                     
-                    -- ticketId|waitingNumber|WAITING|createdAt|lastSeenAt|selectingStartedAt|selectingExpiresAt
+                    -- ticketId|waitingNumber|WAITING|createdAt|selectingStartedAt|selectingExpiresAt
                     return ARGV[2]
                         .. '|'
                         .. waitingNumber

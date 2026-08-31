@@ -7,7 +7,6 @@ public final class QueueRedisKey {
 
     /**
      * 동일 사용자·동일 회차의 티켓 ID
-     *
      * Value: queueTicketId
      */
     public static String userTicket(
@@ -21,7 +20,6 @@ public final class QueueRedisKey {
 
     /**
      * 회차별 대기 순번 카운터
-     *
      * Value: Long
      */
     public static String sequence(Long sessionId) {
@@ -30,13 +28,13 @@ public final class QueueRedisKey {
 
     /**
      * 회차별 대기열 Sorted Set
-     *
      * Member: queueTicketId
      * Score: waitingNumber
      */
     public static String waitingQueue(Long sessionId) {
         return prefix(sessionId) + "waiting";
     }
+
 
     /**
      * 개별 대기열 티켓 Hash
@@ -67,5 +65,45 @@ public final class QueueRedisKey {
      */
     public static String waitingHeartbeat(Long sessionId) {
         return prefix(sessionId) + "heartbeat";
+    }
+
+
+
+
+
+    /**
+     * 티켓 ID → 입장 토큰 매핑
+     */
+    public static String admissionTicket(
+            Long sessionId,
+            String queueTicketId
+    ) {
+        return admissionTicketPrefix(sessionId)
+                + queueTicketId;
+    }
+
+    public static String admissionTicketPrefix(
+            Long sessionId
+    ) {
+        return prefix(sessionId)
+                + "admission:ticket:";
+    }
+
+    /**
+     * 토큰 해시 → 입장 정보
+     */
+    public static String admissionToken(
+            Long sessionId,
+            String tokenHash
+    ) {
+        return admissionTokenPrefix(sessionId)
+                + tokenHash;
+    }
+
+    public static String admissionTokenPrefix(
+            Long sessionId
+    ) {
+        return prefix(sessionId)
+                + "admission:token:";
     }
 }

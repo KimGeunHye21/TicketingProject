@@ -29,8 +29,6 @@ import java.util.UUID;
 public class QueueService {
 
     private static final Duration QUEUE_GRACE_PERIOD = Duration.ofHours(1);
-    // 매 상태 조회마다 heartbeat를 쓰지 않도록 하는 최소 간격
-    private static final Duration HEARTBEAT_REFRESH_INTERVAL = Duration.ofSeconds(15);
 
     private final EventRepository eventRepository;
     private final EventSessionRepository eventSessionRepository;
@@ -66,6 +64,7 @@ public class QueueService {
                         userId,
                         eventId,
                         session,
+                        bookingNow,
                         queueNow
                 ));
     }
@@ -92,6 +91,7 @@ public class QueueService {
             Long userId,
             Long eventId,
             EventSession session,
+            LocalDateTime bookingNow,
             Instant queueNow
     ) {
         QueueTicket candidate = QueueTicket.waiting(
@@ -103,7 +103,7 @@ public class QueueService {
         );
 
         Duration expiration = Duration.between(
-                queueNow,
+                bookingNow,
                 session.getStartAt()
         ).plus(QUEUE_GRACE_PERIOD);
 
