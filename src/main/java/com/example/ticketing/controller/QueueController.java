@@ -2,22 +2,17 @@ package com.example.ticketing.controller;
 
 import com.example.ticketing.dto.queue.QueueJoinResponse;
 import com.example.ticketing.dto.queue.QueueStatusResponse;
-import com.example.ticketing.queue.dto.AdmissionToken;
 import com.example.ticketing.queue.dto.QueueStatusResult;
+import com.example.ticketing.security.AdmissionCookieFactory;
 import com.example.ticketing.security.CustomUserDetails;
 import com.example.ticketing.service.QueueService;
 
 import lombok.RequiredArgsConstructor;
-
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-import java.time.Duration;
-import java.time.Instant;
 
 
 @RestController
@@ -26,9 +21,8 @@ import java.time.Instant;
 public class QueueController {
 
     private final QueueService queueService;
-    private static final String ADMISSION_COOKIE_NAME = "queue_admission";
-    @Value("${queue.admission-cookie.secure:true}")
-    private boolean admissionCookieSecure;
+    private final AdmissionCookieFactory admissionCookieFactory;
+
 
     // 대기열 참가
     @PostMapping("/events/{eventId}/sessions/{sessionId}")
@@ -74,7 +68,8 @@ public class QueueController {
         // 입장 토큰은 HttpOnly 쿠키의 Set-Cookie 헤더로만 전달
         if (result.hasAdmissionToken()) {
             ResponseCookie admissionCookie =
-                    createAdmissionCookie(
+                    admissionCookieFactory.create(
+                            sessionId,
                             result.getAdmissionToken()
                     );
 
@@ -88,30 +83,5 @@ public class QueueController {
         return responseBuilder.body(result.getResponse());
     }
 
-    private ResponseCookie createAdmissionCookie(
-            AdmissionToken admissionToken
-    ) {
-        Duration remaining = Duration.between(
-                Instant.now(),
-                admissionToken.expiresAt()
-        );
-
-        long maxAgeSeconds = Math.max(
-                0L,
-                remaining.getSeconds()
-        );
-
-        return ResponseCookie
-                .from(
-                        ADMISSION_COOKIE_NAME,
-                        admissionToken.value()
-                )
-                .httpOnly(true)
-                .secure(admissionCookieSecure)
-                .sameSite("Strict")
-                .path("/")
-                .maxAge(Duration.ofSeconds(maxAgeSeconds))
-                .build();
-    }
 
 }
