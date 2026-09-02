@@ -521,7 +521,7 @@ public class QueueRedisStore {
     }
 
 
-    // Lua: WAITING 상태 확인과 heartbeat 갱신 처리
+    // Lua: heartbeat 갱신 처리
     private static final DefaultRedisScript<Long>
             TOUCH_HEARTBEAT_SCRIPT =
             new DefaultRedisScript<>("""

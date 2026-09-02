@@ -13,10 +13,19 @@ public final class QueueRedisKey {
             Long sessionId,
             Long userId
     ) {
-        return prefix(sessionId)
-                + "user:"
+        return userTicketPrefix(sessionId)
                 + userId;
     }
+
+    /**
+     * Lua에서 사용자 매핑 키를 만들 때 사용하는 접두사
+     */
+    public static String userTicketPrefix(
+            Long sessionId
+    ) {
+        return prefix(sessionId) + "user:";
+    }
+
 
     /**
      * 회차별 대기 순번 카운터
@@ -105,5 +114,15 @@ public final class QueueRedisKey {
     ) {
         return prefix(sessionId)
                 + "admission:token:";
+    }
+
+
+    /**
+     * 현재 SELECTING 상태인 티켓 ZSET
+     */
+    public static String selectingQueue(
+            Long sessionId
+    ) {
+        return prefix(sessionId) + "selecting";
     }
 }
