@@ -1,7 +1,7 @@
-package com.example.ticketing.service;
+package com.example.ticketing.queue.service;
 
-import com.example.ticketing.exception.AdmissionTokenHashCollisionException;
-import com.example.ticketing.exception.QueueUnavailableException;
+import com.example.ticketing.exception.queue.AdmissionTokenHashCollisionException;
+import com.example.ticketing.exception.queue.QueueUnavailableException;
 import com.example.ticketing.queue.AdmissionTokenRedisStore;
 import com.example.ticketing.queue.domain.QueueStatus;
 import com.example.ticketing.queue.domain.QueueTicket;

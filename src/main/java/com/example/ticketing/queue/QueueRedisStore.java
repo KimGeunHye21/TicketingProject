@@ -1,6 +1,6 @@
 package com.example.ticketing.queue;
 
-import com.example.ticketing.exception.QueueUnavailableException;
+import com.example.ticketing.exception.queue.QueueUnavailableException;
 import com.example.ticketing.queue.domain.QueueStatus;
 import com.example.ticketing.queue.domain.QueueTicket;
 import lombok.RequiredArgsConstructor;

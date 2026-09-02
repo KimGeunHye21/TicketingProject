@@ -1,4 +1,4 @@
-package com.example.ticketing.exception;
+package com.example.ticketing.exception.queue;
 
 // AdmissionTokenService 내부 재시도를 위한 예외
 public class AdmissionTokenHashCollisionException extends RuntimeException {

@@ -1,4 +1,4 @@
-package com.example.ticketing.exception;
+package com.example.ticketing.exception.queue;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;
