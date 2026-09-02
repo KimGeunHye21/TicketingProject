@@ -1,4 +1,4 @@
-package com.example.ticketing.queue;
+package com.example.ticketing.queue.redis;
 
 public final class QueueRedisKey {
 

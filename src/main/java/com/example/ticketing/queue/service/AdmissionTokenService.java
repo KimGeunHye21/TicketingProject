@@ -2,8 +2,7 @@ package com.example.ticketing.queue.service;
 
 import com.example.ticketing.exception.queue.AdmissionTokenHashCollisionException;
 import com.example.ticketing.exception.queue.QueueUnavailableException;
-import com.example.ticketing.queue.AdmissionTokenRedisStore;
-import com.example.ticketing.queue.domain.QueueStatus;
+import com.example.ticketing.queue.redis.AdmissionTokenRedisStore;
 import com.example.ticketing.queue.domain.QueueTicket;
 import com.example.ticketing.queue.dto.AdmissionToken;
 import lombok.RequiredArgsConstructor;
@@ -73,12 +72,6 @@ public class AdmissionTokenService {
                 selectingExpiresAt,
                 "selectingExpiresAt은 필수입니다."
         );
-
-        if (ticket.status() != QueueStatus.SELECTING) {
-            throw new IllegalStateException(
-                    "SELECTING 티켓에만 입장 토큰을 발급할 수 있습니다."
-            );
-        }
 
         Instant ticketSelectingExpiresAt = ticket.selectingExpiresAt();
 

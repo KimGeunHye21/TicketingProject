@@ -1,4 +1,4 @@
-package com.example.ticketing.queue;
+package com.example.ticketing.queue.redis;
 
 import com.example.ticketing.exception.queue.QueueUnavailableException;
 import com.example.ticketing.queue.domain.QueueStatus;
@@ -518,112 +518,6 @@ public class QueueRedisStore {
                 aheadCount,
                 selectingExpiresAt
         );
-    }
-
-
-    // Lua: heartbeat 갱신 처리
-    private static final DefaultRedisScript<Long>
-            TOUCH_HEARTBEAT_SCRIPT =
-            new DefaultRedisScript<>("""
-                local status =
-                    redis.call(
-                        'HGET',
-                        KEYS[1],
-                        'status'
-                    )
-
-                -- WAITING이 아니면 heartbeat를 갱신하지 않음
-                if status ~= 'WAITING' then
-                    return 0
-                end
-
-                -- 마지막 heartbeat시각을 조회
-                local lastHeartbeat =
-                    redis.call(
-                        'ZSCORE',
-                        KEYS[2],
-                        ARGV[1]
-                    )
-
-                local nowMillis =
-                    tonumber(ARGV[2])
-
-                local intervalMillis =
-                    tonumber(ARGV[3])
-
-                -- 마지막 갱신 후 30초가 지나지 않았다면 쓰지 않음
-                if lastHeartbeat
-                    and nowMillis - tonumber(lastHeartbeat)
-                        < intervalMillis then
-                    return 0
-                end
-                -- Sorted Set에 heartbeat 시간을 갱신
-                -- queue:{sessionId}:heartbeat
-                redis.call(
-                    'ZADD',
-                    KEYS[2],
-                    nowMillis,
-                    ARGV[1]
-                )
-
-
-                --heartbeat 데이터가 티켓보다 먼저 Redis에서 없어지지 않게 TTL설정
-                -- heartbeat ZSET도 티켓과 비슷한 시점에 만료
-                local ticketTtl =
-                    redis.call('PTTL', KEYS[1])
-
-                -- 해당 티켓에 정상적인 만료 시간이 설정되어있으면
-                if ticketTtl > 0 then
-                    local heartbeatTtl =
-                        redis.call('PTTL', KEYS[2])
-
-                    -- heartbeat가 티켓보다 먼저 만료될 예정이라면
-                    if heartbeatTtl < ticketTtl then
-                        -- heartbeat ZSET의 TTL을 티켓의 남은 TTL만큼 연장
-                        redis.call(
-                            'PEXPIRE',
-                            KEYS[2],
-                            ticketTtl
-                        )
-                    end
-                end
-
-                return 1
-                """, Long.class);
-
-
-    /**
-     * 마지막 쓰기 후 30초가 지난 경우에만 heartbeat 갱신
-     */
-    public boolean touchWaitingHeartbeatIfNecessary(
-            Long sessionId,
-            String queueTicketId,
-            Instant now
-    ) {
-        try {
-            Long updated = redisTemplate.execute(
-                    TOUCH_HEARTBEAT_SCRIPT,
-                    List.of(
-                            QueueRedisKey.ticket(
-                                    sessionId,
-                                    queueTicketId
-                            ),
-                            QueueRedisKey.waitingHeartbeat(
-                                    sessionId
-                            )
-                    ),
-                    queueTicketId,
-                    Long.toString(now.toEpochMilli()), // ARGV[2]: 현재 시간
-                    Long.toString(
-                            HEARTBEAT_WRITE_INTERVAL.toMillis() // ARGV[3]: heartbeat를 최소 몇 ms 간격으로 갱신할지
-                    )
-            );
-
-            return updated != null && updated == 1L;
-
-        } catch (DataAccessException | IllegalArgumentException exception) {
-            throw new QueueUnavailableException(exception);
-        }
     }
 
 

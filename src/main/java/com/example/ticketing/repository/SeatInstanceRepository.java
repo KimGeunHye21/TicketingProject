@@ -11,4 +11,6 @@ public interface SeatInstanceRepository
             Long sessionId,
             SeatStatus status
     );
+
+    long countBySession_Id(Long sessionId);
 }

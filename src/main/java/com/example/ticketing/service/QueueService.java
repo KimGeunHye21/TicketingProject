@@ -7,7 +7,8 @@ import com.example.ticketing.dto.queue.QueueStatusResponse;
 import com.example.ticketing.exception.*;
 import com.example.ticketing.exception.queue.QueueNotFoundException;
 import com.example.ticketing.exception.queue.QueueUnavailableException;
-import com.example.ticketing.queue.QueueRedisStore;
+import com.example.ticketing.queue.redis.QueueHeartbeatRedisStore;
+import com.example.ticketing.queue.redis.QueueRedisStore;
 import com.example.ticketing.queue.domain.QueueStatus;
 import com.example.ticketing.queue.domain.QueueTicket;
 import com.example.ticketing.queue.dto.AdmissionToken;
@@ -38,7 +39,7 @@ public class QueueService {
     private final EventSessionRepository eventSessionRepository;
     private final QueueRedisStore queueRedisStore;
     private final AdmissionTokenService admissionTokenService;
-
+    private final QueueHeartbeatRedisStore queueHeartbeatRedisStore;
 
     // 대기열 등록
     public QueueJoinResponse joinQueue(
@@ -207,7 +208,7 @@ public class QueueService {
 
         // 내부적으로 마지막 heartbeat 이후
         //HEARTBEAT_REFRESH_INTERVAL 이상 지났을 때만 갱신함
-        queueRedisStore.touchWaitingHeartbeatIfNecessary(
+        queueHeartbeatRedisStore.touchIfNecessary(
                 ticket.sessionId(),
                 ticket.queueTicketId(),
                 now

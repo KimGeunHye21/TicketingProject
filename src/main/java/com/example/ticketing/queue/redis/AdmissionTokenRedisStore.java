@@ -1,4 +1,4 @@
-package com.example.ticketing.queue;
+package com.example.ticketing.queue.redis;
 
 import com.example.ticketing.exception.queue.AdmissionTokenHashCollisionException;
 import com.example.ticketing.exception.queue.QueueUnavailableException;
@@ -46,6 +46,7 @@ public class AdmissionTokenRedisStore {
                 -- 이 대기열 티켓이 토큰을 발급 받을 수 있는 상태인지 검사
                 -- =========================================
                 
+                
                 local ticketStatus =
                     redis.call(
                         'HGET',
@@ -88,17 +89,6 @@ public class AdmissionTokenRedisStore {
                 local tokenExpiresAtMillis = tonumber(ARGV[6])
                 local selectingExpiresAtMillis = tonumber(ARGV[7])
 
-                if not tokenExpiresAtMillis
-                    or not selectingExpiresAtMillis then
-                    return '__INCONSISTENT__'
-                end
-
-
-                -- 입장 토큰은 SELECTING 만료시간을 넘을 수 없음
-                if tokenExpiresAtMillis
-                    > selectingExpiresAtMillis then
-                    return '__INCONSISTENT__'
-                end
 
                 -- 토큰 만료시간이 현재시각 전일 때
                 if tokenExpiresAtMillis <= nowMillis then
@@ -400,12 +390,6 @@ public class AdmissionTokenRedisStore {
     private static final DefaultRedisScript<String>
             VERIFY_SCRIPT =
             new DefaultRedisScript<>("""
-
-                if redis.call('EXISTS', KEYS[1]) == 0 then
-                    return '__NOT_FOUND__'
-                end
-
-
                 local values =
                     redis.call(
                         'HMGET',

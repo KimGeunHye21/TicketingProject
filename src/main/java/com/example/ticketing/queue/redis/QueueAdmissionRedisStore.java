@@ -1,4 +1,4 @@
-package com.example.ticketing.queue;
+package com.example.ticketing.queue.redis;
 
 import com.example.ticketing.exception.queue.QueueUnavailableException;
 import lombok.RequiredArgsConstructor;

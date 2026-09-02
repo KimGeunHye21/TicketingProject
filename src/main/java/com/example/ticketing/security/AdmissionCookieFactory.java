@@ -97,11 +97,7 @@ public class AdmissionCookieFactory {
                 expiresAt
         );
 
-        // 소수점 이하 초를 버립니다.
-        return Math.max(
-                0L,
-                remaining.getSeconds()
-        );
+        return remaining.getSeconds();
     }
 
     private void validateSessionId(Long sessionId) {
