@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -33,6 +34,8 @@ public class QueueService {
     private final EventRepository eventRepository;
     private final EventSessionRepository eventSessionRepository;
     private final QueueRedisStore queueRedisStore;
+    private final AdmissionTokenService admissionTokenService;
+
 
     // 대기열 등록
     public QueueJoinResponse joinQueue(
@@ -117,7 +120,7 @@ public class QueueService {
     }
 
 
-    // 대기열 상태 조회
+    // 사용자의 대기열 상태 조회
     public QueueStatusResult getQueueStatus(
             Long userId,
             Long eventId,
@@ -171,7 +174,7 @@ public class QueueService {
 
             case CHECKOUT ->
                     QueueStatusResult.withoutToken(
-                            QueueStatusResponse.checkout()
+                            QueueStatusResponse.checkout() // 현재상태 = checkout
                     );
 
             case EXPIRED, CANCELLED ->
@@ -198,7 +201,6 @@ public class QueueService {
                     )
             );
         }
-
 
         // 내부적으로 마지막 heartbeat 이후
         //HEARTBEAT_REFRESH_INTERVAL 이상 지났을 때만 갱신함
@@ -270,8 +272,8 @@ public class QueueService {
 
         // 만료 시각 전이라면
         // 예매 진행 페이지에 접근 가능한 토큰 발급
-        AdmissionToken admissionToken =
-                admissionTokenService.getOrCreate(
+        Optional<AdmissionToken> admissionToken =
+                admissionTokenService.issueIfAbsent(
                         ticket,
                         selectingExpiresAt
                 );
@@ -281,10 +283,18 @@ public class QueueService {
                         selectingExpiresAt
                 );
 
-        return QueueStatusResult.withToken(
-                response,
-                admissionToken
-        );
+        return admissionToken
+                .map(token ->
+                        QueueStatusResult.withToken( // 새 토큰이 생성됨
+                                response,
+                                token
+                        )
+                )
+                .orElseGet(() ->
+                        QueueStatusResult.withoutToken( // 이미 기존 토큰이 있음
+                                response
+                        )
+                );
     }
 
     private void validateQueueTicketOwner(

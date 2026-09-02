@@ -1,5 +1,6 @@
 package com.example.ticketing.queue;
 
+import com.example.ticketing.exception.AdmissionTokenHashCollisionException;
 import com.example.ticketing.exception.QueueUnavailableException;
 import com.example.ticketing.queue.domain.QueueStatus;
 import com.example.ticketing.queue.domain.QueueTicket;
@@ -377,8 +378,8 @@ public class AdmissionTokenRedisStore {
             case INCONSISTENT -> throw new IllegalArgumentException(
                     "Redis 입장 토큰 데이터가 일관되지 않습니다."
             );
-            case TOKEN_HASH_COLLISION -> throw new IllegalArgumentException(
-                    "입장 토큰 해시가 충돌했습니다."
+            case TOKEN_HASH_COLLISION ->
+                    throw new AdmissionTokenHashCollisionException(
             );
             case EXISTING -> Optional.empty();
 
