@@ -21,15 +21,6 @@ public class QueueAdmissionService {
         validateSessionId(sessionId);
         long seatCapacity = seatInstanceRepository.countBySession_Id(sessionId);
 
-
-        if (seatCapacity <= 0L) { // 좌석 인스턴스가 없는 경우
-            log.debug(
-                    "대기열 입장 처리 대상 없음: " + "sessionId={}, seatCapacity=0",
-                    sessionId
-            );
-            return 0L;
-        }
-
         int maxSelectingUsers = (int) seatCapacity;
 
         // 상태변경: redis에게 위임
