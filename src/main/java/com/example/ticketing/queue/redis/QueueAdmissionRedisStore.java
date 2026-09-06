@@ -34,6 +34,8 @@ public class QueueAdmissionRedisStore {
                 local maxSelectingUsers = tonumber(ARGV[2])
                 local selectingTtlMillis = tonumber(ARGV[3])
                 local maxWaitingInspections = tonumber(ARGV[4])
+                local userTicketKeyPrefix = ARGV[5]
+                local terminalRetentionMillis = tonumber(ARGV[6])
 
 
                 -- =========================================
@@ -123,9 +125,86 @@ public class QueueAdmissionRedisStore {
                 local selectingStartedAt = epochMillisToIso8601(nowMillis)
                 local selectingExpiresAt = epochMillisToIso8601(selectingExpiresAtMillis)
 
+                --------------------------------------------------
+                -- 2. 만료된 SELECTING 사용자 정리
+                --------------------------------------------------
+                
+                -- 지금 시각까지 이미 만료된 SELECTING 티켓 전부 찾기
+                local expiredSelectingTicketIds =
+                    redis.call(
+                        'ZRANGEBYSCORE',
+                        selectingQueueKey,
+                        '-inf',
+                        nowEpochMillis
+                    )
+
+                for _, ticketId in ipairs(
+                    expiredSelectingTicketIds
+                ) do
+                    local ticketKey = ticketKeyPrefix .. ticketId
+
+                    local ticketValues =
+                        redis.call(
+                            'HMGET',
+                            ticketKey,
+                            'status',
+                            'userId'
+                        )
+
+                    local currentStatus = ticketValues[1]
+                    local userId = ticketValues[2]
+
+                    -- 아직 SELECTING인 경우에만 EXPIRED로 변경
+                    -- CHECKOUT으로 변경된 티켓은 덮어쓰지 않음
+                    if currentStatus == 'SELECTING' then
+                        redis.call(
+                            'HSET',
+                            ticketKey,
+                            'status',
+                            'EXPIRED',
+                            'terminalAt',
+                            nowIso
+                        )
+
+                        -- 종료 상태 조회를 위해 잠시 보존
+                        redis.call(
+                            'PEXPIRE',
+                            ticketKey,
+                            terminalRetentionMillis
+                        )
+
+                        -- 사용자 → 티켓 매핑도 같은 기간 유지
+                        if userId then
+                            local userTicketKey = userTicketKeyPrefix .. userId
+
+                            local mappedTicketId =
+                                redis.call(
+                                    'GET',
+                                    userTicketKey
+                                )
+
+                            -- 새 티켓 매핑을 실수로 만료시키지 않도록 현재 티켓과 연결된 경우에만 TTL 설정
+                            if mappedTicketId == ticketId then
+                                redis.call(
+                                    'PEXPIRE',
+                                    userTicketKey,
+                                    terminalRetentionMillis
+                                )
+                            end
+                        end
+                    end
+
+                    -- Hash가 없거나 CHECKOUT 등 다른 상태여도
+                    -- selecting ZSET에는 남아 있으면 안 된다.
+                    redis.call(
+                        'ZREM',
+                        selectingQueueKey,
+                        ticketId
+                    )
+                end
 
                 -- =========================================
-                -- 2. 현재 SELECTING 인원과 여유 슬롯 계산
+                -- 3. 현재 SELECTING 인원과 여유 슬롯 계산
                 -- =========================================
 
                 local currentSelectingCount =
@@ -140,7 +219,7 @@ public class QueueAdmissionRedisStore {
                 end
 
                 -- =========================================
-                -- 3. WAITING 선두 사용자 선정
+                -- 4. WAITING 선두 사용자 선정
                 -- =========================================
 
                 local admittedCount = 0
@@ -269,7 +348,9 @@ public class QueueAdmissionRedisStore {
                             QueueRedisKey.ticketPrefix(sessionId), // ARGV[1]: QueueTicket Key prefix
                             Integer.toString(maxSelectingUsers), // ARGV[2]: 최대 SELECTING 인원
                             Long.toString(selectingTtlMillis), // ARGV[3]: SELECTING 제한시간(ms)
-                            Integer.toString(MAX_WAITING_INSPECTIONS) // ARGV[4]: 최대 WAITING 검사 수
+                            Integer.toString(MAX_WAITING_INSPECTIONS), // ARGV[4]: 최대 WAITING 검사 수
+                            QueueRedisKey.userTicketPrefix(sessionId), // ARGV[5]: 사용자 → 티켓 매핑 Key prefix
+                            Long.toString(TERMINAL_RETENTION.toMillis()) // ARGV[6]: 종료 상태 보존시간(ms)
                     );
 
             if (admittedCount == null) {

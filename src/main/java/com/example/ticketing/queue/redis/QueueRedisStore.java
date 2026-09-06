@@ -25,6 +25,10 @@ public class QueueRedisStore {
     // EXPIRED, CANCELLED 상태 보존 기간
     private static final Duration TERMINAL_RETENTION = Duration.ofMinutes(10);
 
+    // 정리 cursor가 영구적으로 남지 않도록 하는 보조 TTL
+    private static final Duration CLEANUP_CURSOR_TTL = Duration.ofHours(1);
+    private static final int MAX_CLEANUP_SCAN_COUNT = 10_000;
+
     // Redis 명령 실행용 객체
     private final StringRedisTemplate redisTemplate;
 
@@ -720,5 +724,210 @@ public class QueueRedisStore {
                 QueueStatus.CANCELLED,
                 now
         );
+    }
+
+
+    // Lua: waiting ZSET과 QueueTicket Hash의 불일치를 정리
+    private static final DefaultRedisScript<Long>
+            CLEANUP_DANGLING_WAITING_SCRIPT =
+            new DefaultRedisScript<>("""
+            -- 얼마만큼 검사할지
+            local scanCount = tonumber(ARGV[3])
+            local cursorFallbackTtlMillis = tonumber(ARGV[4])
+
+            if not scanCount
+                or scanCount < 1
+                or not cursorFallbackTtlMillis
+                or cursorFallbackTtlMillis < 1 then
+
+                return -1
+            end
+
+            -- 이전에 어디까지 검사했는지 ZSCAN cursor
+            local cursor =
+                redis.call(
+                    'GET',
+                    KEYS[3]
+                )
+
+            if not cursor then
+                cursor = '0'
+            end
+
+            -- waiting ZSET 일부만 조회
+            local scanResult =
+                redis.call(
+                    'ZSCAN',
+                    KEYS[1],
+                    cursor,
+                    'COUNT',
+                    scanCount
+                )
+
+            local nextCursor = scanResult[1]
+            local entries = scanResult[2]
+
+            local removedCount = 0
+
+            -- ZSCAN 결과는 member, score 순서
+            for index = 1, #entries, 2 do
+            
+                local queueTicketId = entries[index]
+                local ticketKey = ARGV[1] .. queueTicketId
+                local ticketValues =
+                    redis.call(
+                        'HMGET',
+                        ticketKey,
+                        'status',
+                        'queueTicketId',
+                        'sessionId'
+                    )
+
+                local status = ticketValues[1]
+                local storedTicketId = ticketValues[2]
+                local storedSessionId = ticketValues[3]
+            
+                -- 실제 QueueTicket 상태가 WAITING인지
+                local validWaitingMember = status == 'WAITING'
+                    -- Hash 안의 queueTicketId와 waiting ZSET의 member가 같은지
+                    and storedTicketId == queueTicketId
+                    -- QueueTicket의 sessionId가 현재 정리 중인 sessionId와 같은지
+                    and storedSessionId == ARGV[2]
+
+                if not validWaitingMember then
+                    -- QueueTicket Hash가 없거나
+                    -- 상태가 WAITING이 아닌 잘못된 member
+                    removedCount =
+                        removedCount
+                        + redis.call(
+                            'ZREM',
+                            KEYS[1],
+                            queueTicketId
+                        )
+
+                    -- WAITING이 아닌 티켓의 heartbeat도 제거
+                    redis.call(
+                        'ZREM',
+                        KEYS[2],
+                        queueTicketId
+                    )
+                end
+            end
+
+            -- 한 바퀴를 모두 돌았다면 cursor 제거
+            if nextCursor == '0' then
+                redis.call(
+                    'DEL',
+                    KEYS[3]
+                )
+            else
+                -- 아직 검사할게 남았으면 cursor저장
+                redis.call(
+                    'SET',
+                    KEYS[3],
+                    nextCursor
+                )
+
+                local waitingQueueTtl =
+                    redis.call(
+                        'PTTL',
+                        KEYS[1]
+                    )
+
+                if waitingQueueTtl > 0 then
+                    redis.call(
+                        'PEXPIRE',
+                        KEYS[3],
+                        waitingQueueTtl
+                    )
+                else
+                    redis.call(
+                        'PEXPIRE',
+                        KEYS[3],
+                        cursorFallbackTtlMillis
+                    )
+                end
+            end
+
+            return removedCount
+            """, Long.class);
+
+    /**
+     * QueueTicket Hash와 일치하지 않는 waiting ZSET member를 제거
+     *
+     * 제거 대상:
+     * - QueueTicket Hash가 없는 member
+     * - 티켓 상태가 WAITING이 아닌 member
+     * - Hash의 queueTicketId가 다른 member
+     * - Hash의 sessionId가 다른 member
+     */
+    public int cleanupDanglingWaitingMembers(
+            Long sessionId,
+            int scanCount
+    ) {
+        validateWaitingCleanupArguments(
+                sessionId,
+                scanCount
+        );
+
+        try {
+            Long removedCount =
+                    redisTemplate.execute(
+                            CLEANUP_DANGLING_WAITING_SCRIPT,
+                            List.of(
+                                    QueueRedisKey.waitingQueue(sessionId),          // KEYS[1]: WAITING ZSET
+                                    QueueRedisKey.waitingHeartbeat(sessionId),      // KEYS[2]: WAITING heartbeat ZSET
+                                    QueueRedisKey.waitingCleanupCursor(sessionId)   // KEYS[3]: cleanup ZSCAN cursor key
+                            ),
+                            QueueRedisKey.ticketPrefix(sessionId),                  // ARGV[1]: QueueTicket key prefix
+                            sessionId.toString(),                                   // ARGV[2]: sessionId
+                            Integer.toString(scanCount),                            // ARGV[3]: 한 번에 스캔할 개수
+                            Long.toString(CLEANUP_CURSOR_TTL.toMillis())            // ARGV[4]: cursor fallback TTL(ms)
+                    );
+
+            if (removedCount == null) {
+                throw new IllegalArgumentException(
+                        "Redis waiting ZSET 정리 결과가 없습니다."
+                );
+            }
+
+            if (removedCount < 0L) {
+                throw new IllegalArgumentException(
+                        "Redis waiting ZSET 정리 결과가 올바르지 않습니다: " + removedCount
+                );
+            }
+
+            if (removedCount > Integer.MAX_VALUE) {
+                throw new IllegalArgumentException(
+                        "Redis waiting ZSET 정리 결과가 처리 범위를 초과했습니다."
+                );
+            }
+
+            return removedCount.intValue();
+
+        } catch (DataAccessException |
+                 IllegalArgumentException exception) {
+
+            throw new QueueUnavailableException(exception);
+        }
+    }
+
+    private void validateWaitingCleanupArguments(
+            Long sessionId,
+            int scanCount
+    ) {
+        if (sessionId == null || sessionId <= 0L) {
+            throw new IllegalArgumentException(
+                    "sessionId는 1 이상이어야 합니다."
+            );
+        }
+
+        if (scanCount < 1 || scanCount > MAX_CLEANUP_SCAN_COUNT) {
+            throw new IllegalArgumentException(
+                    "scanCount는 1 이상 "
+                            + MAX_CLEANUP_SCAN_COUNT
+                            + " 이하여야 합니다."
+            );
+        }
     }
 }

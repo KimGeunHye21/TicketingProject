@@ -125,4 +125,14 @@ public final class QueueRedisKey {
     ) {
         return prefix(sessionId) + "selecting";
     }
+
+    /**
+     * waiting ZSET 정리용 ZSCAN cursor
+     */
+    public static String waitingCleanupCursor(
+            Long sessionId
+    ) {
+        return prefix(sessionId)
+                + "cleanup:waiting:cursor";
+    }
 }
