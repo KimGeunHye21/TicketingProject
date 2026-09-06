@@ -164,6 +164,16 @@ public class QueueRedisStore {
                         ARGV[2]
                     )
                     
+                    -- 신규 등록 시점을 최초 heartbeat로 저장
+                    -- Score: createdAt epoch millis
+                    -- Member: queueTicketId
+                    redis.call(
+                        'ZADD',
+                        KEYS[4],
+                        ARGV[8],
+                        ARGV[2]
+                    )
+                    
                     
                     -- =====================================================
                     -- 6. 사용자 -> 티켓 ID 매핑 저장
@@ -278,7 +288,11 @@ public class QueueRedisStore {
                 // KEYS[2]: 회차별 순번 카운터
                 QueueRedisKey.sequence(sessionId),
                 // KEYS[3]: 실제 대기열 Sorted Set
-                QueueRedisKey.waitingQueue(sessionId)
+                QueueRedisKey.waitingQueue(sessionId),
+                // KEYS[4]: WAITING heartbeat ZSET
+                QueueRedisKey.waitingHeartbeat(
+                        sessionId
+                )
         );
 
         try {
@@ -307,7 +321,13 @@ public class QueueRedisStore {
                     candidate.createdAt().toString(),
 
                     // ARGV[7]
-                    Long.toString(expirationSeconds)
+                    Long.toString(expirationSeconds),
+
+                    // ARGV[8]: 최초 heartbeat score
+                    Long.toString(
+                            candidate.createdAt()
+                                    .toEpochMilli()
+                    )
             );
 
             // Lua Script의 결과 String을 QueueTicket 객체로 변환
