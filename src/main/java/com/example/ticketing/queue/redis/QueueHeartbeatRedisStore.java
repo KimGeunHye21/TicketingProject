@@ -14,8 +14,8 @@ import java.util.List;
 @RequiredArgsConstructor
 @Component
 public class QueueHeartbeatRedisStore {
-    // heartbeat는 polling마다 쓰지 않고 30초마다 갱신
-    private static final Duration HEARTBEAT_WRITE_INTERVAL = Duration.ofSeconds(30);
+    // heartbeat는 polling마다 쓰지 않고 10초마다 갱신
+    private static final Duration HEARTBEAT_WRITE_INTERVAL = Duration.ofSeconds(10);
     // CANCELLED 상태를 클라이언트가 확인할 수 있도록 10분 보존
     private static final Duration TERMINAL_RETENTION = Duration.ofMinutes(10);
 
