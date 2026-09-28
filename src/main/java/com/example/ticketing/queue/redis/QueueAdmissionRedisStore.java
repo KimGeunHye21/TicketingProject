@@ -120,7 +120,8 @@ public class QueueAdmissionRedisStore {
                 local nowMillis =
                     tonumber(redisTime[1]) * 1000
                     + math.floor(tonumber(redisTime[2]) / 1000)
-
+                
+                local nowIso = epochMillisToIso8601(nowMillis)
                 local selectingExpiresAtMillis = nowMillis + selectingTtlMillis
                 local selectingStartedAt = epochMillisToIso8601(nowMillis)
                 local selectingExpiresAt = epochMillisToIso8601(selectingExpiresAtMillis)
@@ -133,14 +134,12 @@ public class QueueAdmissionRedisStore {
                 local expiredSelectingTicketIds =
                     redis.call(
                         'ZRANGEBYSCORE',
-                        selectingQueueKey,
+                        KEYS[2],
                         '-inf',
                         nowEpochMillis
                     )
 
-                for _, ticketId in ipairs(
-                    expiredSelectingTicketIds
-                ) do
+                for _, ticketId in ipairs(expiredSelectingTicketIds) do
                     local ticketKey = ticketKeyPrefix .. ticketId
 
                     local ticketValues =
@@ -154,8 +153,7 @@ public class QueueAdmissionRedisStore {
                     local currentStatus = ticketValues[1]
                     local userId = ticketValues[2]
 
-                    -- 아직 SELECTING인 경우에만 EXPIRED로 변경
-                    -- CHECKOUT으로 변경된 티켓은 덮어쓰지 않음
+                    -- CHECKOUT 등 다른 상태를 EXPIRED로 덮어쓰지 않음
                     if currentStatus == 'SELECTING' then
                         redis.call(
                             'HSET',
@@ -176,12 +174,7 @@ public class QueueAdmissionRedisStore {
                         -- 사용자 → 티켓 매핑도 같은 기간 유지
                         if userId then
                             local userTicketKey = userTicketKeyPrefix .. userId
-
-                            local mappedTicketId =
-                                redis.call(
-                                    'GET',
-                                    userTicketKey
-                                )
+                            local mappedTicketId = redis.call('GET',userTicketKey)
 
                             -- 새 티켓 매핑을 실수로 만료시키지 않도록 현재 티켓과 연결된 경우에만 TTL 설정
                             if mappedTicketId == ticketId then
@@ -198,7 +191,7 @@ public class QueueAdmissionRedisStore {
                     -- selecting ZSET에는 남아 있으면 안 된다.
                     redis.call(
                         'ZREM',
-                        selectingQueueKey,
+                        KEYS[2],
                         ticketId
                     )
                 end
@@ -263,12 +256,9 @@ public class QueueAdmissionRedisStore {
                             'HSET',
                             ticketKey,
                             'status', 'SELECTING',
-                            'selectingStartedAt',
-                                selectingStartedAt,
-                            'selectingExpiresAt',
-                                selectingExpiresAt,
-                            'selectingExpiresAtEpochMilli',
-                                selectingExpiresAtMillis
+                            'selectingStartedAt', nowIso,
+                            'selectingExpiresAt', selectingExpiresAt,
+                            'selectingExpiresAtEpochMilli', selectingExpiresAtMillis
                         )
 
                         -- ZPOPMIN으로 waiting에서는 이미 제거됨

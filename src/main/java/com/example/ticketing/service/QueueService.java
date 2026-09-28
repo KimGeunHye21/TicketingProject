@@ -7,13 +7,13 @@ import com.example.ticketing.dto.queue.QueueStatusResponse;
 import com.example.ticketing.exception.*;
 import com.example.ticketing.exception.queue.QueueNotFoundException;
 import com.example.ticketing.exception.queue.QueueUnavailableException;
+import com.example.ticketing.queue.dto.QueueTicketQueryResult;
 import com.example.ticketing.queue.redis.QueueHeartbeatRedisStore;
 import com.example.ticketing.queue.redis.QueueRedisStore;
 import com.example.ticketing.queue.domain.QueueStatus;
 import com.example.ticketing.queue.domain.QueueTicket;
 import com.example.ticketing.queue.dto.AdmissionToken;
 import com.example.ticketing.queue.dto.QueueStatusResult;
-import com.example.ticketing.queue.dto.QueueStatusSnapshot;
 import com.example.ticketing.queue.service.AdmissionTokenService;
 import com.example.ticketing.repository.EventRepository;
 import com.example.ticketing.repository.EventSessionRepository;
@@ -62,18 +62,15 @@ public class QueueService {
         validateBookingTime(event, session, bookingNow);
 
 
-        // 동일 사용자·동일 회차의 활성 대기열 티켓이 있으면 그대로 반환
-        // 없으면 새로운 대기열 티켓 생성
+        // 새로운 대기열 티켓 생성
         Instant queueNow = Instant.now();
-        return queueRedisStore.findActiveTicket(userId, sessionId)
-                .map(QueueJoinResponse::from)
-                .orElseGet(() -> registerQueueTicket(
-                        userId,
-                        eventId,
-                        session,
-                        bookingNow,
-                        queueNow
-                ));
+        return registerQueueTicket(
+                userId,
+                eventId,
+                session,
+                bookingNow,
+                queueNow
+        );
     }
 
     private void validateBookingTime(
@@ -130,11 +127,14 @@ public class QueueService {
             Long eventId,
             Long sessionId
     ) {
-        QueueTicket ticket = queueRedisStore
-                .findTicketByUser(userId, sessionId)
-                .orElseThrow(QueueNotFoundException::new);
+        QueueTicketQueryResult queryResult =
+                queueRedisStore.findTicketStatus(
+                        userId,
+                        sessionId
+                );
 
-        // 정보가 존재하는지 확인
+        QueueTicket ticket = queryResult.ticket();
+
         validateQueueTicketOwner(
                 ticket,
                 userId,
@@ -142,16 +142,9 @@ public class QueueService {
                 sessionId
         );
 
-        // 현재 status조회 (selecting상태라면 대기 순위도)
-        QueueStatusSnapshot snapshot =
-                queueRedisStore.getStatusSnapshot(
-                        sessionId,
-                        ticket.queueTicketId()
-                );
-
         return createStatusResult(
                 ticket,
-                snapshot,
+                queryResult.aheadCount(),
                 Instant.now()
         );
     }
@@ -160,31 +153,22 @@ public class QueueService {
     // 대기열 상태 조회 결과 -> 반환값 생성
     private QueueStatusResult createStatusResult(
             QueueTicket ticket,
-            QueueStatusSnapshot snapshot,
+            Long aheadCount,
             Instant now
     ) {
-        return switch (snapshot.status()) {
-            case WAITING -> handleWaiting(
-                    ticket,
-                    snapshot,
-                    now
-            );
-
-            case SELECTING -> handleSelecting(
-                    ticket,
-                    snapshot,
-                    now
-            );
-
+        return switch (ticket.status()) {
+            case WAITING ->
+                    handleWaiting(ticket, aheadCount);
+            case SELECTING ->
+                    handleSelecting(ticket, now);
             case CHECKOUT ->
                     QueueStatusResult.withoutToken(
-                            QueueStatusResponse.checkout() // 현재상태 = checkout
+                            QueueStatusResponse.checkout()
                     );
-
             case EXPIRED, CANCELLED ->
                     QueueStatusResult.withoutToken(
                             QueueStatusResponse.terminal(
-                                    snapshot.status()
+                                    ticket.status()
                             )
                     );
         };
@@ -192,16 +176,13 @@ public class QueueService {
 
     private QueueStatusResult handleWaiting(
             QueueTicket ticket,
-            QueueStatusSnapshot snapshot,
-            Instant now
+            Long aheadCount
     ) {
-        Long aheadCount = snapshot.aheadCount();
-
         // Redis 데이터가 일관되지 않은 상태
         if (aheadCount == null) {
             throw new QueueUnavailableException(
                     new IllegalStateException(
-                            "WAITING 티켓의 ZRANK를 찾을 수 없습니다."
+                            "WAITING 티켓의 ZRANK가 없습니다."
                     )
             );
         }
@@ -211,32 +192,29 @@ public class QueueService {
         queueHeartbeatRedisStore.touchIfNecessary(
                 ticket.sessionId(),
                 ticket.queueTicketId(),
-                now
+                Instant.now()
         );
 
-        long nextPollAfterMs =
-                calculateNextPollAfterMs(aheadCount);
+        long nextPollAfterMs = calculateNextPollAfterMs(aheadCount);
 
-        QueueStatusResponse response =
+        return QueueStatusResult.withoutToken(
                 QueueStatusResponse.waiting(
-                        aheadCount, // ZRANK 그대로 사용
+                        aheadCount,
                         nextPollAfterMs
-                );
-
-        return QueueStatusResult.withoutToken(response);
+                )
+        );
     }
 
     private QueueStatusResult handleSelecting(
             QueueTicket ticket,
-            QueueStatusSnapshot snapshot,
             Instant now
     ) {
-        Instant selectingExpiresAt = snapshot.selectingExpiresAt();
+        Instant selectingExpiresAt = ticket.selectingExpiresAt();
 
         if (selectingExpiresAt == null) {
             throw new QueueUnavailableException(
                     new IllegalStateException(
-                            "SELECTING 상태에 selectingExpiresAt이 없습니다."
+                            "SELECTING 티켓에 selectingExpiresAt이 없습니다."
                     )
             );
         }
@@ -250,32 +228,14 @@ public class QueueService {
                     now
             );
 
-            // CHECKOUT 전환 등 다른 요청과 경합했을 수 있으므로
-            // Redis의 최종 상태를 다시 조회
-            QueueStatusSnapshot refreshedSnapshot =
-                    queueRedisStore.getStatusSnapshot(
-                            ticket.sessionId(),
-                            ticket.queueTicketId()
-                    );
-
-            if (refreshedSnapshot.status()
-                    == QueueStatus.SELECTING) {
-                throw new QueueUnavailableException(
-                        new IllegalStateException(
-                                "만료된 SELECTING 티켓의 상태 전환에 실패했습니다."
-                        )
-                );
-            }
-
-            return createStatusResult(
-                    ticket,
-                    refreshedSnapshot,
-                    Instant.now()
+            return QueueStatusResult.withoutToken(
+                    QueueStatusResponse.terminal(
+                            QueueStatus.EXPIRED
+                    )
             );
         }
 
-        // 만료 시각 전이라면
-        // 예매 진행 페이지에 접근 가능한 토큰 발급
+        // 만료 시각 전이라면 예매 진행 페이지에 접근 가능한 토큰 발급
         Optional<AdmissionToken> admissionToken =
                 admissionTokenService.issueIfAbsent(
                         ticket,
