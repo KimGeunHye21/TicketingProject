@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 
@@ -411,8 +410,7 @@ public class QueueRedisStore {
                     String.class
             );
 
-    public Optional<QueueTicketQueryResult>
-    findTicketStatus(
+    public Optional<QueueTicketQueryResult> findTicketStatus(
             Long userId,
             Long sessionId
     ) {
@@ -458,18 +456,14 @@ public class QueueRedisStore {
             );
         }
 
-        if (QUEUE_NOT_FOUND.equals(result)) {
-            return Optional.empty();
-        }
-
-        if (TICKET_DATA_INVALID.equals(result)) {
-            throw new IllegalArgumentException(
+        switch (result) {
+            case QUEUE_NOT_FOUND -> {
+                return Optional.empty();
+            }
+            case TICKET_DATA_INVALID -> throw new IllegalArgumentException(
                     "Redis QueueTicket 데이터가 올바르지 않습니다."
             );
-        }
-
-        if (WAITING_RANK_MISSING.equals(result)) {
-            throw new IllegalArgumentException(
+            case WAITING_RANK_MISSING -> throw new IllegalArgumentException(
                     "WAITING 티켓이 waiting ZSET에 없습니다."
             );
         }
@@ -819,7 +813,6 @@ public class QueueRedisStore {
 
     /**
      * QueueTicket Hash와 일치하지 않는 waiting ZSET member를 제거
-     *
      * 제거 대상:
      * - QueueTicket Hash가 없는 member
      * - 티켓 상태가 WAITING이 아닌 member

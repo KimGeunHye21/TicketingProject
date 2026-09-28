@@ -128,10 +128,14 @@ public class QueueService {
             Long sessionId
     ) {
         QueueTicketQueryResult queryResult =
-                queueRedisStore.findTicketStatus(
-                        userId,
-                        sessionId
-                );
+                queueRedisStore
+                        .findTicketStatus(
+                                userId,
+                                sessionId
+                        )
+                        .orElseThrow(
+                                QueueNotFoundException::new
+                        );
 
         QueueTicket ticket = queryResult.ticket();
 
