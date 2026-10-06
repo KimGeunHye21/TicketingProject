@@ -7,6 +7,8 @@ import com.example.ticketing.queue.domain.QueueTicket;
 import com.example.ticketing.queue.dto.AdmissionToken;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.example.ticketing.exception.queue.AdmissionRequiredException;
+import com.example.ticketing.queue.redis.AdmissionTokenRedisStore.VerifiedAdmission;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -91,6 +93,20 @@ public class AdmissionTokenService {
                             + "selectingExpiresAt이 일치하지 않습니다."
             );
         }
+    }
+
+
+    public VerifiedAdmission verifyOrThrow(
+            String rawToken,
+            Long userId,
+            Long eventId,
+            Long sessionId
+    ) {
+        return admissionTokenRedisStore
+                .verify(rawToken, userId, eventId, sessionId)
+                .orElseThrow(() -> new AdmissionRequiredException(
+                        "예매 진행 권한이 필요합니다.")
+                );
     }
 
 

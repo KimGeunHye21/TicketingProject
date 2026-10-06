@@ -196,9 +196,17 @@ public class QueueRedisStore {
                     -- =====================================================
                     -- 7. 관련 Key에 만료 시간 설정
                     -- =====================================================
-
+                    
+                    -- KEYS[2]: 회차별 대기 순번 sequence
                     redis.call('EXPIRE', KEYS[2], ARGV[7])
+                    
+                    -- KEYS[3]: WAITING ZSET
                     redis.call('EXPIRE', KEYS[3], ARGV[7])
+                    
+                    -- KEYS[4]: WAITING heartbeat ZSET
+                    redis.call('EXPIRE', KEYS[4], ARGV[7])
+                    
+                    -- QueueTicket Hash
                     redis.call('EXPIRE', ticketKey, ARGV[7])
 
 

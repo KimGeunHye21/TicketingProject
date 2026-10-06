@@ -12,6 +12,7 @@ import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.http.HttpMethod;
 
 import java.util.List;
 
@@ -66,6 +67,12 @@ public class SecurityConfig {
                                 "/auth/logout",
                                 "/auth/withdraw",
                                 "/queue/events/*/sessions/*"
+                        ).authenticated()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/events/*/sessions/*/sections",
+                                "/events/*/sessions/*/seats"
                         ).authenticated()
 
                         // 아직 다른 API 정책은 안 정했으므로 허용

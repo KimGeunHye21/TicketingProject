@@ -239,7 +239,7 @@ public class QueueService {
             );
         }
 
-        // 만료 시각 전이라면 예매 진행 페이지에 접근 가능한 토큰 발급
+        // 예매 진행 페이지에 접근 가능한 토큰 발급
         Optional<AdmissionToken> admissionToken =
                 admissionTokenService.issueIfAbsent(
                         ticket,

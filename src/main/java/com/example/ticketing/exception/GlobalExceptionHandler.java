@@ -1,5 +1,6 @@
 package com.example.ticketing.exception;
 
+import com.example.ticketing.exception.queue.AdmissionRequiredException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -18,6 +19,16 @@ public class GlobalExceptionHandler {
         // body에는 예외 메시지를 담아서 반환
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED)
+                .body(exception.getMessage());
+    }
+
+    // AdmissionRequiredException 예외 발생 -> 401이 아닌 403으로 반환
+    @ExceptionHandler(AdmissionRequiredException.class)
+    public ResponseEntity<String> handleAdmissionRequired(
+            AdmissionRequiredException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
                 .body(exception.getMessage());
     }
 }
