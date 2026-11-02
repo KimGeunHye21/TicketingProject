@@ -560,6 +560,7 @@ public class QueueRedisStore {
                 redis.call(
                     'HDEL',
                     KEYS[1],
+                    'selectingStartedAt',
                     'selectingExpiresAt'
                 )
 
@@ -571,13 +572,20 @@ public class QueueRedisStore {
                     KEYS[3],
                     ARGV[1]
                 )
+                -- heartbeat ZSET에서 제거
                 -- KEYS[4] = waitingHeartbeat
                 redis.call(
                     'ZREM',
                     KEYS[4],
                     ARGV[1]
                 )
-                
+                -- SELECTING ZSET에서 제거
+                -- KEYS[5] = selectingQueue
+                redis.call(
+                    'ZREM',
+                    KEYS[5],
+                    ARGV[1]
+                )
 
                 local retentionSeconds =
                     tonumber(ARGV[4])
@@ -618,20 +626,11 @@ public class QueueRedisStore {
             Long transitioned = redisTemplate.execute(
                     TERMINAL_TRANSITION_SCRIPT,
                     List.of(
-                            QueueRedisKey.ticket(
-                                    sessionId,
-                                    queueTicketId
-                            ),
-                            QueueRedisKey.userTicket(
-                                    sessionId,
-                                    userId
-                            ),
-                            QueueRedisKey.waitingQueue(
-                                    sessionId
-                            ),
-                            QueueRedisKey.waitingHeartbeat(
-                                    sessionId
-                            )
+                            QueueRedisKey.ticket(sessionId, queueTicketId),
+                            QueueRedisKey.userTicket(sessionId, userId),
+                            QueueRedisKey.waitingQueue(sessionId),
+                            QueueRedisKey.waitingHeartbeat(sessionId),
+                            QueueRedisKey.selectingQueue(sessionId)
                     ),
                     queueTicketId,
                     targetStatus.name(),

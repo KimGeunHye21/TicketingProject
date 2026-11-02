@@ -136,11 +136,11 @@ public class QueueAdmissionRedisStore {
                         'ZRANGEBYSCORE',
                         KEYS[2],
                         '-inf',
-                        nowEpochMillis
+                        nowMillis
                     )
 
                 for _, ticketId in ipairs(expiredSelectingTicketIds) do
-                    local ticketKey = ticketKeyPrefix .. ticketId
+                    local ticketKey = ARGV[1] .. ticketId
 
                     local ticketValues =
                         redis.call(

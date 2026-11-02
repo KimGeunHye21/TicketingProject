@@ -45,7 +45,7 @@ public class EventController {
 
 
     // 공연 구역 배치도 조회
-    @GetMapping("/events/{eventId}/sessions/{sessionId}/sections")
+    @GetMapping("/{eventId}/sessions/{sessionId}/sections")
     public ResponseEntity<SectionMapResponse> getSections(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long eventId,

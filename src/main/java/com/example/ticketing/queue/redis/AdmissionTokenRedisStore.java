@@ -390,6 +390,10 @@ public class AdmissionTokenRedisStore {
     private static final DefaultRedisScript<String>
             VERIFY_SCRIPT =
             new DefaultRedisScript<>("""
+                if redis.call('EXISTS', KEYS[1]) == 0 then
+                    return '__NOT_FOUND__'
+                end
+                
                 local values =
                     redis.call(
                         'HMGET',
@@ -488,7 +492,6 @@ public class AdmissionTokenRedisStore {
 
     /**
      * 구역·좌석 API에서 호출할 검증 메서드
-     * 실패 사유를 구분하지 않고 Optional.empty()를 반환
      */
     public Optional<VerifiedAdmission> verify(
             String rawToken,
