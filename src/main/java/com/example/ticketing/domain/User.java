@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -37,14 +36,7 @@ public class User {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-
-    public User(
-            Provider provider,
-            String providerId,
-            String email,
-            String name,
-            Role role
-    ) {
+    public User(Provider provider, String providerId, String email, String name, Role role) {
         this.provider = provider;
         this.providerId = providerId;
         this.email = email;

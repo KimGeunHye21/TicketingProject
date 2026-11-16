@@ -7,7 +7,6 @@ import eventPlaceholder from '../../assets/evnet-placeholder.svg';
 import '../../styles/event.css';
 
 function EventListPage() {
-
     const navigate = useNavigate();
 
     const [events, setEvents] = useState([]);
@@ -18,13 +17,9 @@ function EventListPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-
     useEffect(() => {
-
         const fetchEvents = async () => {
-
             try {
-
                 setLoading(true);
                 setError(null);
 
@@ -32,65 +27,41 @@ function EventListPage() {
 
                 setEvents(data.content);
                 setTotalPages(data.totalPages);
-
             } catch (error) {
+                console.error('공연 목록 조회 실패:', error);
 
-                console.error(
-                    '공연 목록 조회 실패:',
-                    error
-                );
-
-                setError(
-                    '공연 목록을 불러오지 못했습니다.'
-                );
-
+                setError('공연 목록을 불러오지 못했습니다.');
             } finally {
-
                 setLoading(false);
             }
         };
 
         fetchEvents();
-
     }, [page]);
-
 
     // 공연 상세 페이지 이동
     const handleEventClick = (eventId) => {
-
         navigate(`/events/${eventId}`);
     };
 
-
     // 날짜 표시
     const formatDateTime = (dateTime) => {
-
         if (!dateTime) {
             return '';
         }
 
         const date = new Date(dateTime);
 
-        return date.toLocaleString('ko-KR', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        return date.toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
     };
 
-
     if (loading) {
-        return (
-            <main className="page-container event-page">
+        return (<main className="page-container event-page">
                 <p className="event-message">
                     공연 목록을 불러오는 중입니다.
                 </p>
-            </main>
-        );
+            </main>);
     }
-
 
     if (error) {
         return (
@@ -101,7 +72,6 @@ function EventListPage() {
             </main>
         );
     }
-
 
     return (
         <main className="page-container event-page">
@@ -117,35 +87,19 @@ function EventListPage() {
             </div>
 
 
-            {events.length === 0 ? (
-
-                <p className="event-message">
+            {events.length === 0 ? (<p className="event-message">
                     등록된 공연이 없습니다.
-                </p>
-
-            ) : (
+                </p>) : (
 
                 <div className="event-grid">
 
                     {events.map((event) => (
 
-                        <article
-                            key={event.eventId}
-                            className="event-card"
-                            onClick={() =>
-                                handleEventClick(
-                                    event.eventId
-                                )
-                            }
-                        >
+                        <article key={event.eventId} className="event-card" onClick={() => handleEventClick(event.eventId) } >
 
                             <div className="event-image-wrapper">
 
-                                <img
-                                    src={eventPlaceholder}
-                                    alt={`${event.title} 공연 이미지`}
-                                    className="event-image"
-                                />
+                                <img src={eventPlaceholder} alt={`${event.title} 공연 이미지`} className="event-image" />
 
                             </div>
 
@@ -158,8 +112,7 @@ function EventListPage() {
 
 
                                 <p className="event-cast">
-                                    {event.cast ||
-                                        '출연진 정보 없음'}
+                                    {event.cast || '출연진 정보 없음'}
                                 </p>
 
 
@@ -187,9 +140,7 @@ function EventListPage() {
                                         </span>
 
                                         <span>
-                                            {formatDateTime(
-                                                event.bookingOpenAt
-                                            )}
+                                            {formatDateTime(event.bookingOpenAt)}
                                         </span>
 
                                     </div>
@@ -210,16 +161,7 @@ function EventListPage() {
 
                 <div className="event-pagination">
 
-                    <button
-                        type="button"
-                        className="pagination-button"
-                        disabled={page === 0}
-                        onClick={() =>
-                            setPage(
-                                (prev) => prev - 1
-                            )
-                        }
-                    >
+                    <button type="button" className="pagination-button" disabled={page === 0} onClick={() => setPage((prev) => prev - 1) } >
                         이전
                     </button>
 
@@ -227,22 +169,9 @@ function EventListPage() {
                     <div className="pagination-pages">
 
                         {Array.from(
-                            {
-                                length: totalPages
-                            },
+                            { length: totalPages },
                             (_, index) => (
-                                <button
-                                    key={index}
-                                    type="button"
-                                    className={
-                                        page === index
-                                            ? 'pagination-number active'
-                                            : 'pagination-number'
-                                    }
-                                    onClick={() =>
-                                        setPage(index)
-                                    }
-                                >
+                                <button key={index} type="button" className={ page === index ? 'pagination-number active' : 'pagination-number' } onClick={() => setPage(index) } >
                                     {index + 1}
                                 </button>
                             )
@@ -251,18 +180,7 @@ function EventListPage() {
                     </div>
 
 
-                    <button
-                        type="button"
-                        className="pagination-button"
-                        disabled={
-                            page === totalPages - 1
-                        }
-                        onClick={() =>
-                            setPage(
-                                (prev) => prev + 1
-                            )
-                        }
-                    >
+                    <button type="button" className="pagination-button" disabled={ page === totalPages - 1 } onClick={() => setPage((prev) => prev + 1) } >
                         다음
                     </button>
 

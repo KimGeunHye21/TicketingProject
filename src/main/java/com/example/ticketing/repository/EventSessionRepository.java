@@ -11,20 +11,15 @@ import java.util.Optional;
 
 public interface EventSessionRepository
         extends JpaRepository<EventSession, Long> {
-
     List<EventSession> findAllByEvent_IdOrderByStartAtAsc(Long eventId);
 
-    Optional<EventSession> findByIdAndEvent_Id(
-            Long sessionId,
-            Long eventId
-    );
+    Optional<EventSession> findByIdAndEvent_Id(Long sessionId, Long eventId);
 
     // 이벤트 시작/종료 날자를 가져옴
     Optional<EventSession>
     findFirstByEvent_IdOrderByStartAtAsc(Long eventId);
     Optional<EventSession>
     findFirstByEvent_IdOrderByStartAtDesc(Long eventId);
-
 
     // 대기열 입장 처리가 필요한 활성 회차 ID 조회
     @Query("""
@@ -35,8 +30,5 @@ public interface EventSessionRepository
               and session.startAt > :now
             order by session.id
             """)
-    List<Long> findActiveQueueSessionIds(
-            @Param("now")
-            LocalDateTime now
-    );
+    List<Long> findActiveQueueSessionIds(@Param("now") LocalDateTime now);
 }

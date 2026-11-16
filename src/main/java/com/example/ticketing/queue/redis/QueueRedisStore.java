@@ -15,11 +15,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-
 @Component
 @RequiredArgsConstructor
 public class QueueRedisStore {
-
     // EXPIRED, CANCELLED 상태 보존 기간
     private static final Duration TERMINAL_RETENTION = Duration.ofMinutes(10);
 
@@ -31,8 +29,7 @@ public class QueueRedisStore {
     private final StringRedisTemplate redisTemplate;
 
     // Lua: 대기열 추가 스크립트
-    private static final DefaultRedisScript<String> JOIN_SCRIPT =
-            new DefaultRedisScript<>("""
+    private static final DefaultRedisScript<String> JOIN_SCRIPT = new DefaultRedisScript<>("""
                     
                     
                     -- =====================================================
@@ -223,21 +220,15 @@ public class QueueRedisStore {
                         .. '||'
                     """, String.class);
 
-
-
     /**
      * 기존 활성 티켓이 있으면 반환하고,
      * 없으면 새로운 티켓을 원자적으로 등록
      */
-    public QueueTicket joinOrGet(
-            QueueTicket candidate,
-            Duration expiration
-    ) {
+    public QueueTicket joinOrGet(QueueTicket candidate, Duration expiration) {
         long expirationSeconds = Math.max(1L, expiration.toSeconds());
         Long sessionId = candidate.sessionId();
 
-        List<String> keys = List.of(
-                QueueRedisKey.userTicket(sessionId, candidate.userId()), // KEYS[1]: user → ticketId
+        List<String> keys = List.of(QueueRedisKey.userTicket(sessionId, candidate.userId()), // KEYS[1]: user → ticketId
                 QueueRedisKey.sequence(sessionId),                       // KEYS[2]: 순번 counter
                 QueueRedisKey.waitingQueue(sessionId),                   // KEYS[3]: WAITING ZSET
                 QueueRedisKey.waitingHeartbeat(sessionId)                // KEYS[4]: heartbeat ZSET
@@ -246,10 +237,7 @@ public class QueueRedisStore {
         try {
             // Redis에서 Lua Script 실행
             // Redis가 이 스크립트 전체를 하나의 원자적인 작업처럼 처리
-            String result = redisTemplate.execute(
-                    JOIN_SCRIPT,
-                    keys,
-                    QueueRedisKey.ticketPrefix(sessionId),              // ARGV[1]: ticket key prefix
+            String result = redisTemplate.execute(JOIN_SCRIPT, keys, QueueRedisKey.ticketPrefix(sessionId),              // ARGV[1]: ticket key prefix
                     candidate.queueTicketId(),                          // ARGV[2]: queueTicketId
                     candidate.userId().toString(),                      // ARGV[3]: userId
                     candidate.eventId().toString(),                     // ARGV[4]: eventId
@@ -261,29 +249,21 @@ public class QueueRedisStore {
 
             // Lua Script의 결과 String을 QueueTicket 객체로 변환
             return parseJoinResult(result, candidate);
-
         } catch (DataAccessException | IllegalArgumentException exception) {
             throw new QueueUnavailableException(exception);
         }
     }
 
     // Lua Script에서 반환한 문자열을 QueueTicket으로 변환
-    private QueueTicket parseJoinResult(
-            String result,
-            QueueTicket candidate
-    ) {
+    private QueueTicket parseJoinResult(String result, QueueTicket candidate) {
         if (result == null) {
-            throw new IllegalArgumentException(
-                    "Redis 대기열 등록 결과가 없습니다."
-            );
+            throw new IllegalArgumentException("Redis 대기열 등록 결과가 없습니다.");
         }
 
         String[] fields = result.split("\\|", -1);
 
         if (fields.length != 6) {
-            throw new IllegalArgumentException(
-                    "Redis 대기열 등록 결과 형식이 올바르지 않습니다."
-            );
+            throw new IllegalArgumentException("Redis 대기열 등록 결과 형식이 올바르지 않습니다.");
         }
 
         return new QueueTicket(
@@ -307,20 +287,14 @@ public class QueueRedisStore {
         return Instant.parse(value);
     }
 
+    private static final String QUEUE_NOT_FOUND = "__QUEUE_NOT_FOUND__";
 
-    private static final String QUEUE_NOT_FOUND =
-            "__QUEUE_NOT_FOUND__";
+    private static final String TICKET_DATA_INVALID = "__TICKET_DATA_INVALID__";
 
-    private static final String TICKET_DATA_INVALID =
-            "__TICKET_DATA_INVALID__";
-
-    private static final String WAITING_RANK_MISSING =
-            "__WAITING_RANK_MISSING__";
+    private static final String WAITING_RANK_MISSING = "__WAITING_RANK_MISSING__";
 
     private static final DefaultRedisScript<String>
-            FIND_TICKET_STATUS_BY_USER_SCRIPT =
-            new DefaultRedisScript<>(
-                    """
+            FIND_TICKET_STATUS_BY_USER_SCRIPT = new DefaultRedisScript<>("""
                     -- KEYS[1]: 사용자 → queueTicketId 매핑
                     -- KEYS[2]: waiting ZSET
                     
@@ -414,79 +388,51 @@ public class QueueRedisStore {
                         .. (values[8] or '').. '|'
                         .. (values[9] or '').. '|'
                         .. aheadCount
-                    """,
-                    String.class
-            );
+                    """, String.class);
 
-    public Optional<QueueTicketQueryResult> findTicketStatus(
-            Long userId,
-            Long sessionId
-    ) {
+    public Optional<QueueTicketQueryResult> findTicketStatus(Long userId, Long sessionId) {
         if (userId == null || userId <= 0L) {
-            throw new IllegalArgumentException(
-                    "userId는 1 이상이어야 합니다."
-            );
+            throw new IllegalArgumentException("userId는 1 이상이어야 합니다.");
         }
 
         if (sessionId == null || sessionId <= 0L) {
-            throw new IllegalArgumentException(
-                    "sessionId는 1 이상이어야 합니다."
-            );
+            throw new IllegalArgumentException("sessionId는 1 이상이어야 합니다.");
         }
 
         try {
-            String result =
-                    redisTemplate.execute(
-                            FIND_TICKET_STATUS_BY_USER_SCRIPT,
-                            List.of(
-                                    QueueRedisKey.userTicket(sessionId, userId), // KEYS[1]: user → ticketId
+            String result = redisTemplate.execute(FIND_TICKET_STATUS_BY_USER_SCRIPT, List.of(QueueRedisKey.userTicket(sessionId, userId), // KEYS[1]: user → ticketId
                                     QueueRedisKey.waitingQueue(sessionId)       // KEYS[2]: WAITING ZSET
-                            ),
-                            QueueRedisKey.ticketPrefix(sessionId),              // ARGV[1]: ticket key prefix
+                            ), QueueRedisKey.ticketPrefix(sessionId),              // ARGV[1]: ticket key prefix
                             userId.toString(),                                  // ARGV[2]: userId
                             sessionId.toString()                                // ARGV[3]: sessionId
                     );
 
             return parseTicketStatusQueryResult(result);
-
-        } catch (DataAccessException
-                 | IllegalArgumentException exception) {
+        } catch (DataAccessException | IllegalArgumentException exception) {
             throw new QueueUnavailableException(exception);
         }
     }
 
-    private Optional<QueueTicketQueryResult> parseTicketStatusQueryResult(
-            String result
-    ) {
+    private Optional<QueueTicketQueryResult> parseTicketStatusQueryResult(String result) {
         if (result == null) {
-            throw new IllegalArgumentException(
-                    "Redis 대기열 상태 조회 결과가 없습니다."
-            );
+            throw new IllegalArgumentException("Redis 대기열 상태 조회 결과가 없습니다.");
         }
 
         switch (result) {
             case QUEUE_NOT_FOUND -> {
                 return Optional.empty();
             }
-            case TICKET_DATA_INVALID -> throw new IllegalArgumentException(
-                    "Redis QueueTicket 데이터가 올바르지 않습니다."
-            );
-            case WAITING_RANK_MISSING -> throw new IllegalArgumentException(
-                    "WAITING 티켓이 waiting ZSET에 없습니다."
-            );
+            case TICKET_DATA_INVALID -> throw new IllegalArgumentException("Redis QueueTicket 데이터가 올바르지 않습니다.");
+            case WAITING_RANK_MISSING -> throw new IllegalArgumentException("WAITING 티켓이 waiting ZSET에 없습니다.");
         }
 
         String[] fields = result.split("\\|", -1);
 
         if (fields.length != 10) {
-            throw new IllegalArgumentException(
-                    "Redis 대기열 상태 조회 결과 형식이 "
-                            + "올바르지 않습니다."
-            );
+            throw new IllegalArgumentException("Redis 대기열 상태 조회 결과 형식이 " + "올바르지 않습니다.");
         }
 
-        QueueTicket ticket =
-                new QueueTicket(
+        QueueTicket ticket = new QueueTicket(
                         fields[0],
                         Long.valueOf(fields[1]),
                         Long.valueOf(fields[2]),
@@ -498,24 +444,14 @@ public class QueueRedisStore {
                         optionalInstant(fields[8])
                 );
 
-        Long aheadCount =
-                fields[9].isBlank() ? null : Long.valueOf(fields[9]);
+        Long aheadCount = fields[9].isBlank() ? null : Long.valueOf(fields[9]);
 
-        return Optional.of(
-                new QueueTicketQueryResult(
-                        ticket,
-                        aheadCount
-                )
-        );
+        return Optional.of(new QueueTicketQueryResult(ticket, aheadCount));
     }
-
-
-
 
     // Lua: 종료상태 (EXPIRED, CANCELLED) 전환 및 보존 TTL 설정
     private static final DefaultRedisScript<Long>
-            TERMINAL_TRANSITION_SCRIPT =
-            new DefaultRedisScript<>("""
+            TERMINAL_TRANSITION_SCRIPT = new DefaultRedisScript<>("""
                 local currentStatus =
                     redis.call(
                         'HGET',
@@ -615,13 +551,7 @@ public class QueueRedisStore {
     /**
      * 상태를 종료상태로 변경 (만료or취소)
      */
-    private boolean transitionToTerminal(
-            Long userId,
-            Long sessionId,
-            String queueTicketId,
-            QueueStatus targetStatus,
-            Instant now
-    ) {
+    private boolean transitionToTerminal(Long userId, Long sessionId, String queueTicketId, QueueStatus targetStatus, Instant now) {
         try {
             Long transitioned = redisTemplate.execute(
                     TERMINAL_TRANSITION_SCRIPT,
@@ -635,68 +565,36 @@ public class QueueRedisStore {
                     queueTicketId,
                     targetStatus.name(),
                     now.toString(),
-                    Long.toString(
-                            TERMINAL_RETENTION.toSeconds()
-                    )
+                    Long.toString(TERMINAL_RETENTION.toSeconds())
             );
 
             if (transitioned == null) {
-                throw new IllegalArgumentException(
-                        "Redis 종료 상태 전환 결과가 없습니다."
-                );
+                throw new IllegalArgumentException("Redis 종료 상태 전환 결과가 없습니다.");
             }
 
             if (transitioned == -1L) {
-                throw new IllegalArgumentException(
-                        "지원하지 않는 종료 상태입니다: "
-                                + targetStatus
-                );
+                throw new IllegalArgumentException("지원하지 않는 종료 상태입니다: " + targetStatus);
             }
 
             return transitioned == 1L;
-
         } catch (DataAccessException | IllegalArgumentException exception) {
             throw new QueueUnavailableException(exception);
         }
     }
 
     // SELECTING이 끝난 경우 EXPIRED상태변경
-    public boolean expireSelectingIfCurrent(
-            Long userId,
-            Long sessionId,
-            String queueTicketId,
-            Instant now
-    ) {
-        return transitionToTerminal(
-                userId,
-                sessionId,
-                queueTicketId,
-                QueueStatus.EXPIRED,
-                now
-        );
+    public boolean expireSelectingIfCurrent(Long userId, Long sessionId, String queueTicketId, Instant now) {
+        return transitionToTerminal(userId, sessionId, queueTicketId, QueueStatus.EXPIRED, now);
     }
 
     // 활성 티켓 취소
-    public boolean cancelIfActive(
-            Long userId,
-            Long sessionId,
-            String queueTicketId,
-            Instant now
-    ) {
-        return transitionToTerminal(
-                userId,
-                sessionId,
-                queueTicketId,
-                QueueStatus.CANCELLED,
-                now
-        );
+    public boolean cancelIfActive(Long userId, Long sessionId, String queueTicketId, Instant now) {
+        return transitionToTerminal(userId, sessionId, queueTicketId, QueueStatus.CANCELLED, now);
     }
-
 
     // Lua: waiting ZSET과 QueueTicket Hash의 불일치를 정리
     private static final DefaultRedisScript<Long>
-            CLEANUP_DANGLING_WAITING_SCRIPT =
-            new DefaultRedisScript<>("""
+            CLEANUP_DANGLING_WAITING_SCRIPT = new DefaultRedisScript<>("""
             -- 얼마만큼 검사할지
             local scanCount = tonumber(ARGV[3])
             local cursorFallbackTtlMillis = tonumber(ARGV[4])
@@ -826,73 +724,44 @@ public class QueueRedisStore {
      * - Hash의 queueTicketId가 다른 member
      * - Hash의 sessionId가 다른 member
      */
-    public int cleanupDanglingWaitingMembers(
-            Long sessionId,
-            int scanCount
-    ) {
-        validateWaitingCleanupArguments(
-                sessionId,
-                scanCount
-        );
+    public int cleanupDanglingWaitingMembers(Long sessionId, int scanCount) {
+        validateWaitingCleanupArguments(sessionId, scanCount);
 
         try {
-            Long removedCount =
-                    redisTemplate.execute(
-                            CLEANUP_DANGLING_WAITING_SCRIPT,
-                            List.of(
-                                    QueueRedisKey.waitingQueue(sessionId),          // KEYS[1]: WAITING ZSET
+            Long removedCount = redisTemplate.execute(CLEANUP_DANGLING_WAITING_SCRIPT, List.of(QueueRedisKey.waitingQueue(sessionId),          // KEYS[1]: WAITING ZSET
                                     QueueRedisKey.waitingHeartbeat(sessionId),      // KEYS[2]: WAITING heartbeat ZSET
                                     QueueRedisKey.waitingCleanupCursor(sessionId)   // KEYS[3]: cleanup ZSCAN cursor key
-                            ),
-                            QueueRedisKey.ticketPrefix(sessionId),                  // ARGV[1]: QueueTicket key prefix
+                            ), QueueRedisKey.ticketPrefix(sessionId),                  // ARGV[1]: QueueTicket key prefix
                             sessionId.toString(),                                   // ARGV[2]: sessionId
                             Integer.toString(scanCount),                            // ARGV[3]: 한 번에 스캔할 개수
                             Long.toString(CLEANUP_CURSOR_TTL.toMillis())            // ARGV[4]: cursor fallback TTL(ms)
                     );
 
             if (removedCount == null) {
-                throw new IllegalArgumentException(
-                        "Redis waiting ZSET 정리 결과가 없습니다."
-                );
+                throw new IllegalArgumentException("Redis waiting ZSET 정리 결과가 없습니다.");
             }
 
             if (removedCount < 0L) {
-                throw new IllegalArgumentException(
-                        "Redis waiting ZSET 정리 결과가 올바르지 않습니다: " + removedCount
-                );
+                throw new IllegalArgumentException("Redis waiting ZSET 정리 결과가 올바르지 않습니다: " + removedCount);
             }
 
             if (removedCount > Integer.MAX_VALUE) {
-                throw new IllegalArgumentException(
-                        "Redis waiting ZSET 정리 결과가 처리 범위를 초과했습니다."
-                );
+                throw new IllegalArgumentException("Redis waiting ZSET 정리 결과가 처리 범위를 초과했습니다.");
             }
 
             return removedCount.intValue();
-
-        } catch (DataAccessException |
-                 IllegalArgumentException exception) {
-
+        } catch (DataAccessException | IllegalArgumentException exception) {
             throw new QueueUnavailableException(exception);
         }
     }
 
-    private void validateWaitingCleanupArguments(
-            Long sessionId,
-            int scanCount
-    ) {
+    private void validateWaitingCleanupArguments(Long sessionId, int scanCount) {
         if (sessionId == null || sessionId <= 0L) {
-            throw new IllegalArgumentException(
-                    "sessionId는 1 이상이어야 합니다."
-            );
+            throw new IllegalArgumentException("sessionId는 1 이상이어야 합니다.");
         }
 
         if (scanCount < 1 || scanCount > MAX_CLEANUP_SCAN_COUNT) {
-            throw new IllegalArgumentException(
-                    "scanCount는 1 이상 "
-                            + MAX_CLEANUP_SCAN_COUNT
-                            + " 이하여야 합니다."
-            );
+            throw new IllegalArgumentException("scanCount는 1 이상 " + MAX_CLEANUP_SCAN_COUNT + " 이하여야 합니다.");
         }
     }
 }

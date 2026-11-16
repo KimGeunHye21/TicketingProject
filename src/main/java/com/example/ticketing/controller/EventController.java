@@ -22,37 +22,25 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/events")
 public class EventController {
-
     private final EventService eventService;
     private final AdmissionTokenService admissionTokenService;
     private final AdmissionCookieFactory admissionCookieFactory;
 
     // 공연 리스트 조회
     @GetMapping
-    public ResponseEntity<Page<EventSummaryResponse>> getEvents(
-            @RequestParam(defaultValue = "0") int page
-    ) {
+    public ResponseEntity<Page<EventSummaryResponse>> getEvents(@RequestParam(defaultValue = "0") int page) {
         return ResponseEntity.ok(eventService.getEvents(page));
     }
 
     // 공연 상세정보 조회
     @GetMapping("/{eventId}")
-    public ResponseEntity<EventDetailResponse> getEvent(
-            @PathVariable Long eventId
-    ) {
+    public ResponseEntity<EventDetailResponse> getEvent(@PathVariable Long eventId) {
         return ResponseEntity.ok(eventService.getEvent(eventId));
     }
 
-
     // 공연 구역 배치도 조회
     @GetMapping("/{eventId}/sessions/{sessionId}/sections")
-    public ResponseEntity<SectionMapResponse> getSections(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable Long eventId,
-            @PathVariable Long sessionId,
-            HttpServletRequest request
-    ) {
-
+    public ResponseEntity<SectionMapResponse> getSections(@AuthenticationPrincipal CustomUserDetails userDetails, @PathVariable Long eventId, @PathVariable Long sessionId, HttpServletRequest request) {
         verifyAdmission(request, userDetails.getUserId(), eventId, sessionId);
 
         return ResponseEntity.ok(eventService.getSectionMap(eventId, sessionId));
@@ -67,32 +55,17 @@ public class EventController {
             @RequestParam(required = false) Long sectionId,
             HttpServletRequest request
     ) {
-
         verifyAdmission(request, userDetails.getUserId(), eventId, sessionId);
 
-        return ResponseEntity.ok(
-                eventService.getSeats(eventId, sessionId, sectionId)
-        );
+        return ResponseEntity.ok(eventService.getSeats(eventId, sessionId, sectionId));
     }
 
-
-    private void verifyAdmission(
-            HttpServletRequest request,
-            Long userId,
-            Long eventId,
-            Long sessionId
-    ) {
+    private void verifyAdmission(HttpServletRequest request, Long userId, Long eventId, Long sessionId) {
         String cookieName = admissionCookieFactory.cookieName(sessionId);
         Cookie admissionCookie = WebUtils.getCookie(request, cookieName);
 
         String rawToken = admissionCookie == null ? null : admissionCookie.getValue();
 
-        admissionTokenService.verifyOrThrow(
-                rawToken,
-                userId,
-                eventId,
-                sessionId
-        );
+        admissionTokenService.verifyOrThrow(rawToken, userId, eventId, sessionId);
     }
-
 }

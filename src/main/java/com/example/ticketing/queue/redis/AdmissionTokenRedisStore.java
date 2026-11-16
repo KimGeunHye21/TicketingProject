@@ -23,7 +23,6 @@ import java.util.Optional;
 @Component
 @RequiredArgsConstructor
 public class AdmissionTokenRedisStore {
-
     private static final String NOT_FOUND = "__NOT_FOUND__";
     private static final String NOT_SELECTING = "__NOT_SELECTING__";
     private static final String INCONSISTENT = "__INCONSISTENT__";
@@ -33,14 +32,12 @@ public class AdmissionTokenRedisStore {
 
     private final StringRedisTemplate redisTemplate;
 
-
     /**
      * 동일 티켓에 이미 토큰이 있다면 기존 토큰을 유지
      * 없다면 새 토큰 해시와 양방향 매핑을 저장
      */
     private static final DefaultRedisScript<String>
-            SAVE_IF_ABSENT_SCRIPT =
-            new DefaultRedisScript<>("""
+            SAVE_IF_ABSENT_SCRIPT = new DefaultRedisScript<>("""
 
                 -- =========================================
                 -- 이 대기열 티켓이 토큰을 발급 받을 수 있는 상태인지 검사
@@ -250,48 +247,28 @@ public class AdmissionTokenRedisStore {
                 return 'CREATED'
                 """, String.class);
 
-
     /**
      * 기존 토큰이 없으면 새 토큰을 저장한다.
      * Optional.of(candidate) -> 새 토큰이 실제로 생성됨
      * Optional.empty()-> 이미 유효한 토큰이 존재함
      */
-    public Optional<AdmissionToken> saveIfAbsent(
-            QueueTicket ticket,
-            AdmissionToken candidate
-    ) {
+    public Optional<AdmissionToken> saveIfAbsent(QueueTicket ticket, AdmissionToken candidate) {
         validateIssuance(ticket, candidate);
 
         // 원문 토큰을 SHA-256으로 해시 (Redis에는 이 hash만 저장)
         String tokenHash = hashToken(candidate.value());
         Instant selectingExpiresAt = ticket.selectingExpiresAt();
 
-        List<String> keys = List.of(
-
-                // 티켓 ID → 토큰 Hash 매핑 (순방향)
+        List<String> keys = List.of(// 티켓 ID → 토큰 Hash 매핑 (순방향)
                 QueueRedisKey.admissionTicket(  // KEYS[1]
-                        ticket.sessionId(),
-                        ticket.queueTicketId()
-                ),
-                // 새 토큰 Hash → 입장 정보 (역방향)
+                        ticket.sessionId(), ticket.queueTicketId()), // 새 토큰 Hash → 입장 정보 (역방향)
                 QueueRedisKey.admissionToken(   // KEYS[2]:
-                        ticket.sessionId(),
-                        tokenHash
-                ),
-                // QueueTicket Hash
+                        ticket.sessionId(), tokenHash), // QueueTicket Hash
                 QueueRedisKey.ticket(           // KEYS[3]
-                        ticket.sessionId(),
-                        ticket.queueTicketId()
-                )
-        );
-
+                        ticket.sessionId(), ticket.queueTicketId()));
 
         try {
-            String result = redisTemplate.execute(
-                    SAVE_IF_ABSENT_SCRIPT,
-                    keys,
-
-                    tokenHash,                                              // ARGV[1]: 새 토큰 Hash
+            String result = redisTemplate.execute(SAVE_IF_ABSENT_SCRIPT, keys,  tokenHash,                                              // ARGV[1]: 새 토큰 Hash
                     ticket.queueTicketId(),                                 // ARGV[2]: queueTicketId
                     ticket.userId().toString(),                             // ARGV[3]: userId
                     ticket.eventId().toString(),                            // ARGV[4]: eventId
@@ -303,93 +280,51 @@ public class AdmissionTokenRedisStore {
                     ticket.sessionId().toString()                           // ARGV[10]: sessionId
             );
 
-            return parseSaveResult(
-                    result,
-                    candidate
-            );
-
-        } catch (DataAccessException |
-                 IllegalArgumentException exception) {
-
+            return parseSaveResult(result, candidate);
+        } catch (DataAccessException | IllegalArgumentException exception) {
             throw new QueueUnavailableException(exception);
         }
     }
 
-
     // Java에서 토큰 발급 가능 여부 미리 검사
-    private void validateIssuance(
-            QueueTicket ticket,
-            AdmissionToken candidate
-    ) {
-        Objects.requireNonNull(
-                ticket,
-                "ticket은 필수입니다."
-        );
-        Objects.requireNonNull(
-                candidate,
-                "candidate는 필수입니다."
-        );
+    private void validateIssuance(QueueTicket ticket, AdmissionToken candidate) {
+        Objects.requireNonNull(ticket, "ticket은 필수입니다.");
+        Objects.requireNonNull(candidate, "candidate는 필수입니다.");
 
         if (ticket.status() != QueueStatus.SELECTING) {
-            throw new IllegalArgumentException(
-                    "SELECTING 티켓에만 입장 토큰을 발급할 수 있습니다."
-            );
+            throw new IllegalArgumentException("SELECTING 티켓에만 입장 토큰을 발급할 수 있습니다.");
         }
 
-        Instant selectingExpiresAt =
-                Objects.requireNonNull(
-                        ticket.selectingExpiresAt(),
-                        "selectingExpiresAt은 필수입니다."
-                );
+        Instant selectingExpiresAt = Objects.requireNonNull(ticket.selectingExpiresAt(), "selectingExpiresAt은 필수입니다.");
 
         if (candidate.expiresAt().isAfter(selectingExpiresAt)) {
-            throw new IllegalArgumentException(
-                    "입장 토큰 만료시간은 SELECTING 만료시간을 "
-                            + "초과할 수 없습니다."
-            );
+            throw new IllegalArgumentException("입장 토큰 만료시간은 SELECTING 만료시간을 " + "초과할 수 없습니다.");
         }
     }
 
-
-    private Optional<AdmissionToken> parseSaveResult(
-            String result,
-            AdmissionToken candidate
-    ) {
+    private Optional<AdmissionToken> parseSaveResult(String result, AdmissionToken candidate) {
         if (result == null) {
-            throw new IllegalArgumentException(
-                    "Redis 입장 토큰 저장 결과가 없습니다."
-            );
+            throw new IllegalArgumentException("Redis 입장 토큰 저장 결과가 없습니다.");
         }
         // 이미 유효한 토큰이 존재
         return switch (result) {
-            case NOT_SELECTING -> throw new IllegalArgumentException(
-                    "현재 티켓이 SELECTING 상태가 아닙니다."
-            );
-            case INCONSISTENT -> throw new IllegalArgumentException(
-                    "Redis 입장 토큰 데이터가 일관되지 않습니다."
-            );
-            case TOKEN_HASH_COLLISION ->
-                    throw new AdmissionTokenHashCollisionException(
-            );
+            case NOT_SELECTING -> throw new IllegalArgumentException("현재 티켓이 SELECTING 상태가 아닙니다.");
+            case INCONSISTENT -> throw new IllegalArgumentException("Redis 입장 토큰 데이터가 일관되지 않습니다.");
+            case TOKEN_HASH_COLLISION -> throw new AdmissionTokenHashCollisionException();
             case EXISTING -> Optional.empty();
-
 
             // 이번 요청에서 새 토큰이 실제 저장됐으므로
             // Java 메모리에 있는 candidate 원문을 클라이언트에 전달 가능
             case CREATED -> Optional.of(candidate);
-            default -> throw new IllegalArgumentException(
-                    "Redis 입장 토큰 저장 결과 형식이 올바르지 않습니다."
-            );
+            default -> throw new IllegalArgumentException("Redis 입장 토큰 저장 결과 형식이 올바르지 않습니다.");
         };
     }
-
 
     /**
      * 구역·좌석 API에서 사용할 입장 토큰 검증 스크립트.
      */
     private static final DefaultRedisScript<String>
-            VERIFY_SCRIPT =
-            new DefaultRedisScript<>("""
+            VERIFY_SCRIPT = new DefaultRedisScript<>("""
                 if redis.call('EXISTS', KEYS[1]) == 0 then
                     return '__NOT_FOUND__'
                 end
@@ -489,53 +424,27 @@ public class AdmissionTokenRedisStore {
                     .. values[5]
                 """, String.class);
 
-
     /**
      * 구역·좌석 API에서 호출할 검증 메서드
      */
-    public Optional<VerifiedAdmission> verify(
-            String rawToken,
-            Long expectedUserId,
-            Long expectedEventId,
-            Long expectedSessionId
-    ) {
+    public Optional<VerifiedAdmission> verify(String rawToken, Long expectedUserId, Long expectedEventId, Long expectedSessionId) {
         if (rawToken == null || rawToken.isBlank()) {
             return Optional.empty();
         }
 
-        Objects.requireNonNull(
-                expectedUserId,
-                "expectedUserId는 필수입니다."
-        );
+        Objects.requireNonNull(expectedUserId, "expectedUserId는 필수입니다.");
 
-        Objects.requireNonNull(
-                expectedEventId,
-                "expectedEventId는 필수입니다."
-        );
+        Objects.requireNonNull(expectedEventId, "expectedEventId는 필수입니다.");
 
-        Objects.requireNonNull(
-                expectedSessionId,
-                "expectedSessionId는 필수입니다."
-        );
+        Objects.requireNonNull(expectedSessionId, "expectedSessionId는 필수입니다.");
 
         // 클라이언트가 가지고 있는 원문 토큰을
         // 서버에서 동일하게 SHA-256 해시
         String tokenHash = hashToken(rawToken);
 
-
         try {
-            String result = redisTemplate.execute(
-                    VERIFY_SCRIPT,
-
-                    List.of(
-                            // tokenHash로 역방향 조회
-                            QueueRedisKey.admissionToken(
-                                    expectedSessionId,
-                                    tokenHash
-                            )
-                    ),
-
-                    expectedUserId.toString(),                              // ARGV[1]: 요청 사용자 ID
+            String result = redisTemplate.execute(VERIFY_SCRIPT,  List.of(// tokenHash로 역방향 조회
+                            QueueRedisKey.admissionToken(expectedSessionId, tokenHash)),  expectedUserId.toString(),                              // ARGV[1]: 요청 사용자 ID
                     expectedEventId.toString(),                             // ARGV[2]: 요청 공연 ID
                     expectedSessionId.toString(),                           // ARGV[3]: 요청 회차 ID
                     QueueRedisKey.ticketPrefix(expectedSessionId),          // ARGV[4]: QueueTicket Key prefix
@@ -543,85 +452,46 @@ public class AdmissionTokenRedisStore {
                     tokenHash                                               // ARGV[6]: 검증할 토큰 Hash
             );
 
-
             return parseVerifyResult(result);
-
-        } catch (DataAccessException |
-                 IllegalArgumentException exception) {
-
+        } catch (DataAccessException | IllegalArgumentException exception) {
             throw new QueueUnavailableException(exception);
         }
     }
 
-
-    private Optional<VerifiedAdmission> parseVerifyResult(
-            String result
-    ) {
+    private Optional<VerifiedAdmission> parseVerifyResult(String result) {
         if (result == null) {
-            throw new IllegalArgumentException(
-                    "Redis 입장 토큰 검증 결과가 없습니다."
-            );
+            throw new IllegalArgumentException("Redis 입장 토큰 검증 결과가 없습니다.");
         }
         if (NOT_FOUND.equals(result)) {
             return Optional.empty();
         }
         if (INCONSISTENT.equals(result)) {
-            throw new IllegalArgumentException(
-                    "Redis 입장 정보가 일관되지 않습니다."
-            );
+            throw new IllegalArgumentException("Redis 입장 정보가 일관되지 않습니다.");
         }
-
 
         String[] fields = result.split("\\|", -1);
 
         if (fields.length != 5) {
-            throw new IllegalArgumentException(
-                    "Redis 입장 토큰 검증 결과 형식이 올바르지 않습니다."
-            );
+            throw new IllegalArgumentException("Redis 입장 토큰 검증 결과 형식이 올바르지 않습니다.");
         }
 
-
-        return Optional.of(
-                new VerifiedAdmission(
-                        fields[0],
-                        Long.valueOf(fields[1]),
-                        Long.valueOf(fields[2]),
-                        Long.valueOf(fields[3]),
-                        Instant.parse(fields[4])
-                )
-        );
+        return Optional.of(new VerifiedAdmission(fields[0], Long.valueOf(fields[1]), Long.valueOf(fields[2]), Long.valueOf(fields[3]), Instant.parse(fields[4])));
     }
-
 
     // 원문 토큰을 SHA-256으로 해시
     private String hashToken(String rawToken) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
 
-            byte[] hashed =
-                    digest.digest(
-                            rawToken.getBytes(StandardCharsets.UTF_8)
-                    );
+            byte[] hashed = digest.digest(rawToken.getBytes(StandardCharsets.UTF_8));
 
             return HexFormat.of().formatHex(hashed);
-
         } catch (NoSuchAlgorithmException exception) {
-
-            throw new IllegalStateException(
-                    "SHA-256 알고리즘을 사용할 수 없습니다.",
-                    exception
-            );
+            throw new IllegalStateException("SHA-256 알고리즘을 사용할 수 없습니다.", exception);
         }
     }
 
-
     // 검증 완료 후 좌석 서비스에서 사용할 내부 정보
-    public record VerifiedAdmission(
-            String queueTicketId,
-            Long userId,
-            Long eventId,
-            Long sessionId,
-            Instant expiresAt
-    ) {
+    public record VerifiedAdmission(String queueTicketId, Long userId, Long eventId, Long sessionId, Instant expiresAt) {
     }
 }

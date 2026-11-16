@@ -1,7 +1,6 @@
 package com.example.ticketing.queue.domain;
 
 public enum QueueStatus {
-
     // 대기 중
     WAITING,
 
@@ -26,7 +25,6 @@ public enum QueueStatus {
     }
 
     public boolean isTerminal() {
-        return this == EXPIRED
-                || this == CANCELLED;
+        return this == EXPIRED || this == CANCELLED;
     }
 }

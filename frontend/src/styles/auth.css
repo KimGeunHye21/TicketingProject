@@ -7,7 +7,6 @@
     box-sizing: border-box;
 }
 
-
 /* 가운데 콘텐츠 영역 */
 .auth-container {
     width: 100%;
@@ -23,7 +22,6 @@
     box-sizing: border-box;
 }
 
-
 /* 제목 */
 .auth-title {
     margin: 0 0 40px;
@@ -35,12 +33,10 @@
     color: #111;
 }
 
-
 /* 이용약관 / 개인정보처리방침 섹션 */
 .auth-section {
     margin-bottom: 38px;
 }
-
 
 /* 섹션 제목 */
 .auth-section h2 {
@@ -52,7 +48,6 @@
     color: #222;
 }
 
-
 /* 일반 글 */
 .auth-section p {
     margin: 0 0 12px;
@@ -63,13 +58,11 @@
     color: #555;
 }
 
-
 /* 목록 */
 .auth-section ul {
     margin: 12px 0 18px;
     padding-left: 22px;
 }
-
 
 .auth-section li {
     margin-bottom: 8px;
@@ -80,7 +73,6 @@
     color: #555;
 }
 
-
 .auth-intro {
     margin: -20px 0 40px;
 
@@ -89,7 +81,6 @@
 
     color: #555;
 }
-
 
 /* 로그인으로 돌아가기 */
 .auth-back-link {
@@ -104,11 +95,9 @@
     text-decoration: none;
 }
 
-
 .auth-back-link:hover {
     text-decoration: underline;
 }
-
 
 /* 로그인 페이지 */
 .login-container {
@@ -120,7 +109,6 @@
     text-align: center;
 }
 
-
 /* 프로젝트 이름 */
 .login-title {
     margin-bottom: 44px;
@@ -131,7 +119,6 @@
 
     color: #111;
 }
-
 
 /* Google 로그인 버튼 */
 .google-login-button {
@@ -150,25 +137,18 @@
 
     cursor: pointer;
 
-    transition:
-            background-color 0.15s ease,
-            box-shadow 0.15s ease,
-            transform 0.1s ease;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
-
 
 .google-login-button:hover {
     background-color: #f8f9fa;
 
-    box-shadow:
-            0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
-
 
 .google-login-button:active {
     transform: scale(0.99);
 }
-
 
 /* 약관 안내 문구 */
 .login-policy {
@@ -180,7 +160,6 @@
     color: #888;
 }
 
-
 .login-policy a {
     color: #555;
     font-weight: 600;
@@ -188,11 +167,9 @@
     text-decoration: none;
 }
 
-
 .login-policy a:hover {
     text-decoration: underline;
 }
-
 
 /* OAuth Callback */
 .callback-container {
@@ -204,7 +181,6 @@
     align-items: center;
     justify-content: center;
 }
-
 
 .callback-spinner {
     width: 36px;
@@ -218,7 +194,6 @@
     animation: callback-spin 0.8s linear infinite;
 }
 
-
 .callback-message {
     margin-top: 18px;
 
@@ -227,9 +202,7 @@
     color: #666;
 }
 
-
 @keyframes callback-spin {
-
     from {
         transform: rotate(0deg);
     }
@@ -239,10 +212,8 @@
     }
 }
 
-
 /* 모바일 */
 @media (max-width: 600px) {
-
     .auth-page {
         padding: 30px 16px;
     }
@@ -280,7 +251,6 @@
     text-align: center;
 }
 
-
 /* 로그아웃 제목 */
 .logout-title {
     margin-bottom: 20px;
@@ -292,7 +262,6 @@
     color: #111;
 }
 
-
 /* 로그아웃 안내 문구 */
 .logout-message {
     margin-bottom: 36px;
@@ -303,17 +272,14 @@
     color: #666;
 }
 
-
 /* 버튼 영역 */
 .logout-buttons {
     display: flex;
     gap: 12px;
 }
 
-
 /* 공통 버튼 */
-.logout-cancel-button,
-.logout-confirm-button {
+.logout-cancel-button, .logout-confirm-button {
     flex: 1;
     height: 52px;
 
@@ -324,11 +290,8 @@
 
     cursor: pointer;
 
-    transition:
-            background-color 0.15s ease,
-            transform 0.1s ease;
+    transition: background-color 0.15s ease, transform 0.1s ease;
 }
-
 
 /* 취소 */
 .logout-cancel-button {
@@ -339,11 +302,9 @@
     color: #333;
 }
 
-
 .logout-cancel-button:hover {
     background-color: #f8f9fa;
 }
-
 
 /* 로그아웃 */
 .logout-confirm-button {
@@ -354,22 +315,17 @@
     color: #ffffff;
 }
 
-
 .logout-confirm-button:hover {
     background-color: #333;
 }
 
-
 /* 클릭 */
-.logout-cancel-button:active,
-.logout-confirm-button:active {
+.logout-cancel-button:active, .logout-confirm-button:active {
     transform: scale(0.99);
 }
 
-
 /* 처리 중 */
-.logout-cancel-button:disabled,
-.logout-confirm-button:disabled {
+.logout-cancel-button:disabled, .logout-confirm-button:disabled {
     cursor: default;
     opacity: 0.6;
 }
@@ -393,14 +349,12 @@
     border: 1px solid #e5e5e5;
     border-radius: 12px;
 
-    box-shadow:
-            0 6px 24px rgba(0, 0, 0, 0.14);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
 
     text-align: center;
 
     z-index: 1000;
 }
-
 
 /* 안내 문구 */
 .login-alert-message {
@@ -411,7 +365,6 @@
 
     color: #222;
 }
-
 
 /* 확인 버튼 */
 .login-alert-button {
@@ -429,7 +382,6 @@
 
     cursor: pointer;
 }
-
 
 .login-alert-button:hover {
     background-color: #333;

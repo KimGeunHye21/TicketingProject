@@ -1,30 +1,19 @@
 import { useEffect, useState } from 'react';
 
-import {
-    useNavigate,
-    useParams
-} from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
-import {
-    getEventDetail
-} from '../../api/eventApi';
+import { getEventDetail } from '../../api/eventApi';
 
-import {
-    useAuth
-} from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 
-import eventPlaceholder
-    from '../../assets/evnet-placeholder.svg';
+import eventPlaceholder from '../../assets/evnet-placeholder.svg';
 
 import '../../styles/eventDetail.css';
 
-
 function EventDetailPage() {
-
     const { eventId } = useParams();
 
     const navigate = useNavigate();
-
 
     /* =========================
        로그인 상태
@@ -35,20 +24,15 @@ function EventDetailPage() {
         loading: authLoading
     } = useAuth();
 
-
     /* =========================
        공연 정보
     ========================= */
 
-    const [event, setEvent] =
-        useState(null);
+    const [event, setEvent] = useState(null);
 
-    const [loading, setLoading] =
-        useState(true);
+    const [loading, setLoading] = useState(true);
 
-    const [error, setError] =
-        useState(null);
-
+    const [error, setError] = useState(null);
 
     // 공연일 선택창 표시 여부
     const [
@@ -56,89 +40,55 @@ function EventDetailPage() {
         setShowSessionSelect
     ] = useState(false);
 
-
     // 선택한 공연 회차
     const [
         selectedSessionId,
         setSelectedSessionId
     ] = useState(null);
 
-
     /* =========================
        공연 상세 조회
     ========================= */
 
     useEffect(() => {
-
         const fetchEvent = async () => {
-
             try {
-
                 setLoading(true);
 
-                const data =
-                    await getEventDetail(eventId);
+                const data = await getEventDetail(eventId);
 
                 setEvent(data);
-
             } catch (error) {
+                console.error('공연 상세 조회 실패:', error);
 
-                console.error(
-                    '공연 상세 조회 실패:',
-                    error
-                );
-
-                setError(
-                    '공연 정보를 불러오지 못했습니다.'
-                );
-
+                setError('공연 정보를 불러오지 못했습니다.');
             } finally {
-
                 setLoading(false);
             }
         };
 
-
         fetchEvent();
-
     }, [eventId]);
-
 
     /* =========================
        날짜 + 시간 출력
     ========================= */
 
     const formatDateTime = (dateTime) => {
-
         if (!dateTime) {
             return '';
         }
 
+        const date = new Date(dateTime);
 
-        const date =
-            new Date(dateTime);
-
-
-        return date.toLocaleString(
-            'ko-KR',
-            {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                weekday: 'short',
-                hour: '2-digit',
-                minute: '2-digit'
-            }
-        );
+        return date.toLocaleString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' });
     };
-
 
     /* =========================
        예매 시작 여부
     ========================= */
 
     const isBookingOpen = () => {
-
         if (!event) {
             return false;
         }
@@ -154,162 +104,101 @@ function EventDetailPage() {
     ========================= */
 
     const isEventEnded = () => {
-
         if (!event || !event.sessions) {
             return true;
         }
 
         const now = new Date();
 
-
         // 현재 시각 이후의 공연 회차가 하나라도 있으면
         // 아직 예매 가능한 공연
-        const hasFutureSession =
-            event.sessions.some(
-                (session) =>
-                    new Date(session.startAt) > now
-            );
-
+        const hasFutureSession = event.sessions.some((session) => new Date(session.startAt) > now);
 
         return !hasFutureSession;
     };
-
 
     /* =========================
        예매 D-Day 계산
     ========================= */
 
     const getBookingDDay = () => {
+        const now = new Date();
 
-        const now =
-            new Date();
+        const openAt = new Date(event.bookingOpenAt);
 
-        const openAt =
-            new Date(
-                event.bookingOpenAt
-            );
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
+        const openDate = new Date(openAt.getFullYear(), openAt.getMonth(), openAt.getDate());
 
-        const today =
-            new Date(
-                now.getFullYear(),
-                now.getMonth(),
-                now.getDate()
-            );
-
-
-        const openDate =
-            new Date(
-                openAt.getFullYear(),
-                openAt.getMonth(),
-                openAt.getDate()
-            );
-
-
-        const difference =
-            openDate.getTime() -
+        const difference = openDate.getTime() -
             today.getTime();
 
-
-        const day =
-            Math.ceil(
-                difference /
-                (1000 * 60 * 60 * 24)
-            );
-
+        const day = Math.ceil(difference / (1000 * 60 * 60 * 24));
 
         if (day <= 0) {
             return 'D-DAY';
         }
 
-
         return `D-${day}`;
     };
-
 
     /* =========================
        예매하기 클릭
     ========================= */
 
     const handleBookingClick = () => {
-
         // 로그인 상태를 아직 확인 중
         if (authLoading) {
             return;
         }
 
-
         // 로그인 안 되어 있음
         if (!isLoggedIn) {
-
             // 로그인 후 돌아올 현재 공연 상세페이지 저장
-            sessionStorage.setItem(
-                'login_return_to',
-                `/events/${eventId}`
-            );
+            sessionStorage.setItem('login_return_to', `/events/${eventId}`);
 
-            navigate(
-                '/login',
-                {
-                    state: {
-                        message:
-                            '로그인이 필요한 페이지입니다.'
-                    }
-                }
-            );
+            navigate('/login', { state: { message: '로그인이 필요한 페이지입니다.' } });
 
             return;
         }
-
 
         // 로그인되어 있음
         // URL 이동 없이 공연일 선택창 표시
         setShowSessionSelect(true);
     };
 
-
     /* =========================
        대기열 페이지 이동
     ========================= */
 
     const handleSeatSelection = () => {
-
         if (!selectedSessionId) {
             alert('공연 회차를 선택해 주세요.');
             return;
         }
 
-
-        navigate(
-            `/queue/events/${eventId}/sessions/${selectedSessionId}`
-        );
+        navigate(`/queue/events/${eventId}/sessions/${selectedSessionId}`);
     };
-
 
     /* =========================
        로딩
     ========================= */
 
     if (loading) {
-
-        return (
-            <main className="page-container event-detail-page">
+        return (<main className="page-container event-detail-page">
 
                 <p className="event-message">
                     공연 정보를 불러오는 중입니다.
                 </p>
 
-            </main>
-        );
+            </main>);
     }
-
 
     /* =========================
        오류
     ========================= */
 
     if (error || !event) {
-
         return (
             <main className="page-container event-detail-page">
 
@@ -320,7 +209,6 @@ function EventDetailPage() {
             </main>
         );
     }
-
 
     return (
 
@@ -338,10 +226,7 @@ function EventDetailPage() {
 
                 <div className="event-detail-poster">
 
-                    <img
-                        src={eventPlaceholder}
-                        alt={`${event.title} 공연 이미지`}
-                    />
+                    <img src={eventPlaceholder} alt={`${event.title} 공연 이미지`} />
 
                 </div>
 
@@ -405,8 +290,7 @@ function EventDetailPage() {
                             </span>
 
                             <span>
-                                {event.cast ||
-                                    '출연진 정보 없음'}
+                                {event.cast || '출연진 정보 없음'}
                             </span>
 
                         </div>
@@ -432,9 +316,7 @@ function EventDetailPage() {
                             </span>
 
                             <span>
-                                {formatDateTime(
-                                    event.bookingOpenAt
-                                )}
+                                {formatDateTime(event.bookingOpenAt)}
                             </span>
 
                         </div>
@@ -463,26 +345,13 @@ function EventDetailPage() {
 
                             </div>
 
-                        ) : isEventEnded() ? (
-
-                            // 공연 종료
-                            <button
-                                type="button"
-                                className="booking-button booking-closed-button"
-                                disabled
-                            >
+                        ) : isEventEnded() ? (// 공연 종료
+                            <button type="button" className="booking-button booking-closed-button" disabled >
                                 예매가 종료되었습니다
-                            </button>
-
-                        ) : (
+                            </button>) : (
 
                             // 예매 가능
-                            <button
-                                type="button"
-                                className="booking-button"
-                                onClick={handleBookingClick}
-                                disabled={authLoading}
-                            >
+                            <button type="button" className="booking-button" onClick={handleBookingClick} disabled={authLoading} >
                                 예매하기
                             </button>
 
@@ -511,17 +380,10 @@ function EventDetailPage() {
 
 
                         <button
-                            type="button"
-                            className="session-close-button"
-                            onClick={() => {
+                            type="button" className="session-close-button" onClick={() => {
+                                setShowSessionSelect(false);
 
-                                setShowSessionSelect(
-                                    false
-                                );
-
-                                setSelectedSessionId(
-                                    null
-                                );
+                                setSelectedSessionId(null);
                             }}
                         >
                             ✕
@@ -532,45 +394,23 @@ function EventDetailPage() {
 
                     <div className="session-list">
 
-                        {event.sessions.filter(
-                            (session) =>
-                                new Date(session.startAt) >
-                                new Date()
-                        ).length === 0 ? (
-
-                            <p className="session-empty">
+                        {event.sessions.filter((session) => new Date(session.startAt) > new Date()).length === 0 ? (<p className="session-empty">
                                 선택 가능한 공연이 없습니다.
-                            </p>
+                            </p>) : (
 
-                        ) : (
-
-                            event.sessions
-                                .filter(
-                                    (session) =>
-                                        new Date(session.startAt) >
-                                        new Date()
-                                )
-                                .map(
+                            event.sessions.filter((session) => new Date(session.startAt) > new Date()).map(
                                     (session) => (
 
                                         <button
                                             key={session.sessionId}
-                                            type="button"
-                                            className={
-                                                selectedSessionId ===
-                                                session.sessionId
+                                            type="button" className={
+                                                selectedSessionId === session.sessionId
                                                     ? 'session-item selected'
-                                                    : 'session-item'
-                                            }
-                                            onClick={() =>
-                                                setSelectedSessionId(
-                                                    session.sessionId
-                                                )
+                                                    : 'session-item' }
+                                            onClick={() => setSelectedSessionId(session.sessionId)
                                             }
                                         >
-                                            {formatDateTime(
-                                                session.startAt
-                                            )}
+                                            {formatDateTime(session.startAt)}
                                         </button>
 
                                     )
@@ -581,16 +421,7 @@ function EventDetailPage() {
                     </div>
 
 
-                    <button
-                        type="button"
-                        className="seat-select-button"
-                        disabled={
-                            !selectedSessionId
-                        }
-                        onClick={
-                            handleSeatSelection
-                        }
-                    >
+                    <button type="button" className="seat-select-button" disabled={ !selectedSessionId } onClick={ handleSeatSelection } >
                         좌석 선택하기
                     </button>
 
@@ -601,6 +432,5 @@ function EventDetailPage() {
         </main>
     );
 }
-
 
 export default EventDetailPage;

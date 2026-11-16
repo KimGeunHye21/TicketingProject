@@ -2,8 +2,7 @@ import { Link } from 'react-router-dom';
 import '../../styles/auth.css';
 
 function PrivacyPage() {
-    return (
-        <main className="auth-page">
+    return (<main className="auth-page">
             <div className="auth-container">
 
                 <h1 className="auth-title">
@@ -208,16 +207,12 @@ function PrivacyPage() {
                     </p>
                 </section>
 
-                <Link
-                    to="/login"
-                    className="auth-back-link"
-                >
+                <Link to="/login" className="auth-back-link" >
                     ← 로그인 화면으로 돌아가기
                 </Link>
 
             </div>
-        </main>
-    );
+        </main>);
 }
 
 export default PrivacyPage;

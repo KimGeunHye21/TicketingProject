@@ -20,8 +20,7 @@ public class QueueAdmissionRedisStore {
     private final StringRedisTemplate redisTemplate;
 
     private static final DefaultRedisScript<Long>
-            ADMIT_NEXT_SCRIPT =
-            new DefaultRedisScript<>("""
+            ADMIT_NEXT_SCRIPT = new DefaultRedisScript<>("""
                 -- KEYS[1]: waiting ZSET
                 -- KEYS[2]: selecting ZSET
                 -- KEYS[3]: waiting heartbeat ZSET
@@ -312,30 +311,15 @@ public class QueueAdmissionRedisStore {
                 return admittedCount
                 """, Long.class);
 
-
-    public int admitNext(
-            Long sessionId,
-            int maxSelectingUsers, // 좌석 선택 상태를 허용할 최대 인원
-            Duration selectingTtl
-    ) {
-        long selectingTtlMillis =
-                validateAndGetTtlMillis(
-                        sessionId,
-                        maxSelectingUsers,
-                        selectingTtl
-                );
+    public int admitNext(Long sessionId, int maxSelectingUsers, // 좌석 선택 상태를 허용할 최대 인원
+            Duration selectingTtl) {
+        long selectingTtlMillis = validateAndGetTtlMillis(sessionId, maxSelectingUsers, selectingTtl);
 
         try {
-            Long admittedCount =
-                    redisTemplate.execute(
-                            ADMIT_NEXT_SCRIPT,
-                            List.of(
-                                    QueueRedisKey.waitingQueue(sessionId), // KEYS[1]: WAITING ZSET
+            Long admittedCount = redisTemplate.execute(ADMIT_NEXT_SCRIPT, List.of(QueueRedisKey.waitingQueue(sessionId), // KEYS[1]: WAITING ZSET
                                     QueueRedisKey.selectingQueue(sessionId), // KEYS[2]: SELECTING ZSET
                                     QueueRedisKey.waitingHeartbeat(sessionId) // KEYS[3]: WAITING heartbeat ZSET
-                            ),
-
-                            QueueRedisKey.ticketPrefix(sessionId), // ARGV[1]: QueueTicket Key prefix
+                            ),  QueueRedisKey.ticketPrefix(sessionId), // ARGV[1]: QueueTicket Key prefix
                             Integer.toString(maxSelectingUsers), // ARGV[2]: 최대 SELECTING 인원
                             Long.toString(selectingTtlMillis), // ARGV[3]: SELECTING 제한시간(ms)
                             Integer.toString(MAX_WAITING_INSPECTIONS), // ARGV[4]: 최대 WAITING 검사 수
@@ -344,51 +328,31 @@ public class QueueAdmissionRedisStore {
                     );
 
             if (admittedCount == null) {
-                throw new IllegalArgumentException(
-                        "Redis 입장 처리 결과가 없습니다."
-                );
+                throw new IllegalArgumentException("Redis 입장 처리 결과가 없습니다.");
             }
 
             if (admittedCount < 0L || admittedCount > maxSelectingUsers) {
-                throw new IllegalArgumentException(
-                        "Redis 입장 처리 결과가 올바르지 않습니다.\n입장자 수: " + admittedCount
-                );
+                throw new IllegalArgumentException("Redis 입장 처리 결과가 올바르지 않습니다.\n입장자 수: " + admittedCount);
             }
 
             return admittedCount.intValue();
-
-        } catch (DataAccessException |
-                 IllegalArgumentException exception) {
-
+        } catch (DataAccessException | IllegalArgumentException exception) {
             throw new QueueUnavailableException(exception);
         }
     }
 
     // Redis 호출 전에 입력값과 설정값을 검사합니다.
-    private long validateAndGetTtlMillis(
-            Long sessionId,
-            int maxSelectingUsers,
-            Duration selectingTtl
-    ) {
+    private long validateAndGetTtlMillis(Long sessionId, int maxSelectingUsers, Duration selectingTtl) {
         if (sessionId == null || sessionId <= 0L) {
-            throw new IllegalArgumentException(
-                    "sessionId는 1 이상이어야 합니다."
-            );
+            throw new IllegalArgumentException("sessionId는 1 이상이어야 합니다.");
         }
 
         if (maxSelectingUsers < 1) {
-            throw new IllegalArgumentException(
-                    "maxSelectingUsers는 1 이상이어야 합니다."
-            );
+            throw new IllegalArgumentException("maxSelectingUsers는 1 이상이어야 합니다.");
         }
 
-        if (selectingTtl == null
-                || selectingTtl.isZero()
-                || selectingTtl.isNegative()) {
-
-            throw new IllegalArgumentException(
-                    "selectingTtl은 양수여야 합니다."
-            );
+        if (selectingTtl == null || selectingTtl.isZero() || selectingTtl.isNegative()) {
+            throw new IllegalArgumentException("selectingTtl은 양수여야 합니다.");
         }
 
         final long selectingTtlMillis;
@@ -396,21 +360,13 @@ public class QueueAdmissionRedisStore {
         try {
             selectingTtlMillis = selectingTtl.toMillis();
         } catch (ArithmeticException exception) {
-            throw new IllegalArgumentException(
-                    "selectingTtl이 너무 큽니다.",
-                    exception
-            );
+            throw new IllegalArgumentException("selectingTtl이 너무 큽니다.", exception);
         }
 
         if (selectingTtlMillis < 1L) {
-            throw new IllegalArgumentException(
-                    "selectingTtl은 최소 1ms 이상이어야 합니다."
-            );
+            throw new IllegalArgumentException("selectingTtl은 최소 1ms 이상이어야 합니다.");
         }
 
         return selectingTtlMillis;
     }
-
-
-
 }

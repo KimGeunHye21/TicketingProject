@@ -9,9 +9,7 @@
   --accent-border: rgba(170, 59, 255, 0.5);
   --social-bg: rgba(244, 243, 236, 0.5);
 
-  --shadow:
-          rgba(0, 0, 0, 0.1) 0 10px 15px -3px,
-          rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -31,16 +29,13 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-
 @media (max-width: 1024px) {
   :root {
     font-size: 16px;
   }
 }
 
-
 @media (prefers-color-scheme: dark) {
-
   :root {
     --text: #9ca3af;
     --text-h: #f3f4f6;
@@ -54,28 +49,21 @@
 
     --social-bg: rgba(47, 48, 58, 0.5);
 
-    --shadow:
-            rgba(0, 0, 0, 0.4) 0 10px 15px -3px,
-            rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+    --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
   }
-
 
   #social .button-icon {
     filter: invert(1) brightness(2);
   }
 }
 
-
 /* =========================
    전체 페이지
 ========================= */
 
-html,
-body,
-#root {
+html, body, #root {
   min-height: 100%;
 }
-
 
 body {
   margin: 0;
@@ -84,7 +72,6 @@ body {
 
   color: var(--text);
 }
-
 
 #root {
   min-height: 100svh;
@@ -96,7 +83,6 @@ body {
 
   box-sizing: border-box;
 }
-
 
 /* =========================
    공통 콘텐츠 영역
@@ -112,23 +98,19 @@ body {
   padding-right: 30px;
 
   box-sizing: border-box;
-
 }
-
 
 /* =========================
    기본 요소
 ========================= */
 
-h1,
-h2 {
+h1, h2 {
   font-family: var(--heading);
 
   font-weight: 500;
 
   color: var(--text-h);
 }
-
 
 h1 {
   font-size: 56px;
@@ -137,7 +119,6 @@ h1 {
 
   margin: 32px 0;
 }
-
 
 h2 {
   font-size: 24px;
@@ -149,14 +130,11 @@ h2 {
   margin: 0 0 8px;
 }
 
-
 p {
   margin: 0;
 }
 
-
-code,
-.counter {
+code, .counter {
   font-family: var(--mono);
 
   display: inline-flex;
@@ -165,7 +143,6 @@ code,
 
   color: var(--text-h);
 }
-
 
 code {
   font-size: 15px;
@@ -177,18 +154,15 @@ code {
   background: var(--code-bg);
 }
 
-
 /* =========================
    반응형
 ========================= */
 
 @media (max-width: 1024px) {
-
   .page-container {
     padding-left: 20px;
     padding-right: 20px;
   }
-
 
   h1 {
     font-size: 36px;
@@ -196,9 +170,7 @@ code {
     margin: 20px 0;
   }
 
-
   h2 {
     font-size: 20px;
   }
-
 }

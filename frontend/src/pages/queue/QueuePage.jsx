@@ -1,27 +1,17 @@
 import { useEffect, useState } from 'react';
 
-import {
-    useNavigate,
-    useParams
-} from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
-import {
-    joinQueue,
-    getQueueStatus
-} from '../../api/queueApi';
+import { joinQueue, getQueueStatus } from '../../api/queueApi';
 
 import '../../styles/queuePage.css';
 
-
 const POLLING_INTERVAL = 3000;
 
-
 function QueuePage() {
-
     const { eventId, sessionId } = useParams();
 
     const navigate = useNavigate();
-
 
     // CONNECTING, WAITING, ENTERING, ERROR, EXPIRED, CANCELLED
     const [phase, setPhase] = useState('CONNECTING');
@@ -35,16 +25,13 @@ function QueuePage() {
     // 재시도용
     const [retryCount, setRetryCount] = useState(0);
 
-
     useEffect(() => {
-
         let isActive = true;
         let pollingTimer = null;
 
         // 대기열 상태 조회
         const checkQueueStatus = async () => {
             try {
-
                 const result = await getQueueStatus(eventId, sessionId); // 대기열 get요청 결과
                 if (!isActive) return;
 
@@ -59,21 +46,12 @@ function QueuePage() {
                     return;
                 }
 
-
                 // 2. 입장 가능
                 if (result.status === 'SELECTING') {
                     setPhase('ENTERING');
 
                     // 구역 선택 페이지로 자동 이동
-                    navigate(
-                        `/booking/events/${eventId}/sessions/${sessionId}/sections`,
-                        {
-                            replace: true,
-                            state: {
-                                selectingExpiresAt: result.selectingExpiresAt
-                            }
-                        }
-                    );
+                    navigate(`/booking/events/${eventId}/sessions/${sessionId}/sections`, { replace: true, state: { selectingExpiresAt: result.selectingExpiresAt } });
 
                     return;
                 }
@@ -90,10 +68,7 @@ function QueuePage() {
                     return;
                 }
 
-                throw new Error(
-                    '알 수 없는 대기열 상태입니다.'
-                );
-
+                throw new Error('알 수 없는 대기열 상태입니다.');
             } catch (error) {
                 if (!isActive) return;
                 console.error('대기열 상태 조회 실패:', error);
@@ -105,7 +80,6 @@ function QueuePage() {
 
         // 최초 대기열 등록
         const registerQueue = async () => {
-
             setPhase('CONNECTING');
 
             setPeopleAhead(null);
@@ -126,9 +100,7 @@ function QueuePage() {
 
                 // 등록 성공 -> 상태 조회 폴링 시작
                 await checkQueueStatus();
-
             } catch (error) {
-
                 if (!isActive) return;
                 console.error('대기열 등록 실패:', error);
                 setErrorMessage('대기열에 접속하지 못했습니다.');
@@ -138,31 +110,23 @@ function QueuePage() {
         };
         registerQueue();
 
-
         // 페이지 이탈 시 정리
         return () => {
-
             isActive = false;
 
             if (pollingTimer !== null) { clearTimeout(pollingTimer); }
         };
-
     }, [eventId, sessionId, navigate, retryCount]);
-
 
     // 다시 시도
     const handleRetry = () => {
-
         setRetryCount(prev => prev + 1);
     };
 
-
     // 공연 상세로 이동
     const handleGoBack = () => {
-
         navigate(`/events/${eventId}`);
     };
-
 
     return (
 
@@ -186,15 +150,10 @@ function QueuePage() {
                 </div>
 
 
-                <div
-                    className="queue-content"
-                    aria-live="polite"
-                >
+                <div className="queue-content" aria-live="polite" >
 
                     {/* 대기열 등록 중 */}
-                    {phase === 'CONNECTING' && (
-
-                        <div className="queue-status">
+                    {phase === 'CONNECTING' && (<div className="queue-status">
 
                             <div className="queue-spinner" />
 
@@ -208,8 +167,7 @@ function QueuePage() {
                                 잠시만 기다려 주세요.
                             </p>
 
-                        </div>
-                    )}
+                        </div>)}
 
 
                     {/* 대기 중 */}
@@ -253,9 +211,7 @@ function QueuePage() {
 
 
                     {/* 입장 중 */}
-                    {phase === 'ENTERING' && (
-
-                        <div className="queue-status">
+                    {phase === 'ENTERING' && (<div className="queue-status">
 
                             <div className="queue-spinner" />
 
@@ -267,8 +223,7 @@ function QueuePage() {
                                 구역 선택 화면으로 이동합니다.
                             </p>
 
-                        </div>
-                    )}
+                        </div>)}
 
 
                     {/* 오류 */}
@@ -280,10 +235,7 @@ function QueuePage() {
 
                             <p>{errorMessage}</p>
 
-                            <button
-                                className="queue-button"
-                                onClick={handleRetry}
-                            >
+                            <button className="queue-button" onClick={handleRetry} >
                                 다시 시도
                             </button>
 
@@ -292,8 +244,7 @@ function QueuePage() {
 
 
                     {/* 대기열 만료 또는 취소 */}
-                    {(phase === 'EXPIRED' ||
-                        phase === 'CANCELLED') && (
+                    {(phase === 'EXPIRED' || phase === 'CANCELLED') && (
 
                         <div className="queue-status">
 
@@ -305,10 +256,7 @@ function QueuePage() {
                                 다시 예매를 진행해 주세요.
                             </p>
 
-                            <button
-                                className="queue-button"
-                                onClick={handleGoBack}
-                            >
+                            <button className="queue-button" onClick={handleGoBack} >
                                 공연 상세로 돌아가기
                             </button>
 

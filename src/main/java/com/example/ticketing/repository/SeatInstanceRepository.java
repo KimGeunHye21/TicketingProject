@@ -6,11 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface SeatInstanceRepository
         extends JpaRepository<SeatInstance, Long> {
-
-    boolean existsBySession_IdAndStatus(
-            Long sessionId,
-            SeatStatus status
-    );
+    boolean existsBySession_IdAndStatus(Long sessionId, SeatStatus status);
 
     long countBySession_Id(Long sessionId);
 }

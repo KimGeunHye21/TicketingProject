@@ -23,11 +23,9 @@ public class QueueHeartbeatRedisStore {
 
     private final StringRedisTemplate redisTemplate;
 
-
     // Lua: heartbeat 갱신 처리
     private static final DefaultRedisScript<Long>
-            TOUCH_HEARTBEAT_SCRIPT =
-            new DefaultRedisScript<>("""
+            TOUCH_HEARTBEAT_SCRIPT = new DefaultRedisScript<>("""
                 local status =
                     redis.call(
                         'HGET',
@@ -96,34 +94,17 @@ public class QueueHeartbeatRedisStore {
                 return 1
                 """, Long.class);
 
-
     // 마지막 쓰기 후 30초가 지난 경우에만 heartbeat 갱신
-    public boolean touchIfNecessary(
-            Long sessionId,
-            String queueTicketId,
-            Instant now
-    ) {
+    public boolean touchIfNecessary(Long sessionId, String queueTicketId, Instant now) {
         try {
-            Long updated = redisTemplate.execute(
-                    TOUCH_HEARTBEAT_SCRIPT,
-                    List.of(
-                            QueueRedisKey.ticket( // KEYS[1]: QueueTicket Hash
-                                    sessionId,
-                                    queueTicketId
-                            ),
-                            QueueRedisKey.waitingHeartbeat( //KEYS[2]: WAITING heartbeat ZSET
-                                    sessionId
-                            )
-                    ),
-                    queueTicketId,                     // ARGV[1]: queueTicketId
+            Long updated = redisTemplate.execute(TOUCH_HEARTBEAT_SCRIPT, List.of(QueueRedisKey.ticket( // KEYS[1]: QueueTicket Hash
+                                    sessionId, queueTicketId), QueueRedisKey.waitingHeartbeat( //KEYS[2]: WAITING heartbeat ZSET
+                                    sessionId)), queueTicketId,                     // ARGV[1]: queueTicketId
                     Long.toString(now.toEpochMilli()), // ARGV[2]: 현재 시간
-                    Long.toString(
-                            HEARTBEAT_WRITE_INTERVAL.toMillis() // ARGV[3]: heartbeat를 최소 몇 ms 간격으로 갱신할지
-                    )
-            );
+                    Long.toString(HEARTBEAT_WRITE_INTERVAL.toMillis() // ARGV[3]: heartbeat를 최소 몇 ms 간격으로 갱신할지
+                    ));
 
             return updated != null && updated == 1L;
-
         } catch (DataAccessException | IllegalArgumentException exception) {
             throw new QueueUnavailableException(exception);
         }
@@ -131,8 +112,7 @@ public class QueueHeartbeatRedisStore {
 
     // Lua: heartbeat가 장시간 끊긴 WAITING 티켓을 CANCELLED 상태로 전환
     private static final DefaultRedisScript<Long>
-            CANCEL_STALE_WAITING_SCRIPT =
-            new DefaultRedisScript<>("""
+            CANCEL_STALE_WAITING_SCRIPT = new DefaultRedisScript<>("""
             local heartbeatTimeoutMillis = tonumber(ARGV[3])
             local terminalRetentionMillis = tonumber(ARGV[4])
             local batchSize = tonumber(ARGV[5])
@@ -352,27 +332,13 @@ public class QueueHeartbeatRedisStore {
      * heartbeat가 설정 시간 이상 끊긴 WAITING 티켓을 CANCELLED로 변경
      * @return 실제 WAITING → CANCELLED 처리된 티켓 수
      */
-    public int cancelStaleWaiting(
-            Long sessionId,
-            Duration heartbeatTimeout,
-            int batchSize
-    ) {
-        long heartbeatTimeoutMillis =
-                validateCleanupArguments(
-                        sessionId,
-                        heartbeatTimeout,
-                        batchSize
-                );
+    public int cancelStaleWaiting(Long sessionId, Duration heartbeatTimeout, int batchSize) {
+        long heartbeatTimeoutMillis = validateCleanupArguments(sessionId, heartbeatTimeout, batchSize);
 
         try {
-            Long cancelledCount =
-                    redisTemplate.execute(
-                            CANCEL_STALE_WAITING_SCRIPT,
-                            List.of(
-                                    QueueRedisKey.waitingHeartbeat(sessionId), // KEYS[1]: WAITING heartbeat ZSET
+            Long cancelledCount = redisTemplate.execute(CANCEL_STALE_WAITING_SCRIPT, List.of(QueueRedisKey.waitingHeartbeat(sessionId), // KEYS[1]: WAITING heartbeat ZSET
                                     QueueRedisKey.waitingQueue(sessionId)      // KEYS[2]: WAITING ZSET
-                            ),
-                            QueueRedisKey.ticketPrefix(sessionId),             // ARGV[1]: QueueTicket key prefix
+                            ), QueueRedisKey.ticketPrefix(sessionId),             // ARGV[1]: QueueTicket key prefix
                             QueueRedisKey.userTicketPrefix(sessionId),         // ARGV[2]: userTicket key prefix
                             Long.toString(heartbeatTimeoutMillis),             // ARGV[3]: heartbeat timeout(ms)
                             Long.toString(TERMINAL_RETENTION.toMillis()),      // ARGV[4]: 종료 상태 보존시간(ms)
@@ -380,69 +346,42 @@ public class QueueHeartbeatRedisStore {
                     );
 
             if (cancelledCount == null) {
-                throw new IllegalArgumentException(
-                        "Redis heartbeat 정리 결과가 없습니다."
-                );
+                throw new IllegalArgumentException("Redis heartbeat 정리 결과가 없습니다.");
             }
 
             if (cancelledCount < 0L || cancelledCount > batchSize) {
-                throw new IllegalArgumentException(
-                        "Redis heartbeat 정리 결과가 "
-                                + "올바르지 않습니다: "
-                                + cancelledCount
-                );
+                throw new IllegalArgumentException("Redis heartbeat 정리 결과가 " + "올바르지 않습니다: " + cancelledCount);
             }
 
             return cancelledCount.intValue();
-
         } catch (DataAccessException | IllegalArgumentException exception) {
-
             throw new QueueUnavailableException(exception);
         }
     }
 
-    private long validateCleanupArguments(
-            Long sessionId,
-            Duration heartbeatTimeout,
-            int batchSize
-    ) {
+    private long validateCleanupArguments(Long sessionId, Duration heartbeatTimeout, int batchSize) {
         if (sessionId == null || sessionId <= 0L) {
-            throw new IllegalArgumentException(
-                    "sessionId는 1 이상이어야 합니다."
-            );
+            throw new IllegalArgumentException("sessionId는 1 이상이어야 합니다.");
         }
 
-        if (heartbeatTimeout == null
-                || heartbeatTimeout.isZero()
-                || heartbeatTimeout.isNegative()) {
-
-            throw new IllegalArgumentException(
-                    "heartbeatTimeout은 양수여야 합니다."
-            );
+        if (heartbeatTimeout == null || heartbeatTimeout.isZero() || heartbeatTimeout.isNegative()) {
+            throw new IllegalArgumentException("heartbeatTimeout은 양수여야 합니다.");
         }
 
         if (batchSize < 1) {
-            throw new IllegalArgumentException(
-                    "batchSize는 1 이상이어야 합니다."
-            );
+            throw new IllegalArgumentException("batchSize는 1 이상이어야 합니다.");
         }
 
         final long timeoutMillis;
 
         try {
             timeoutMillis = heartbeatTimeout.toMillis();
-
         } catch (ArithmeticException exception) {
-            throw new IllegalArgumentException(
-                    "heartbeatTimeout이 너무 큽니다.",
-                    exception
-            );
+            throw new IllegalArgumentException("heartbeatTimeout이 너무 큽니다.", exception);
         }
 
         if (timeoutMillis < 1L) {
-            throw new IllegalArgumentException(
-                    "heartbeatTimeout은 최소 1ms 이상이어야 합니다."
-            );
+            throw new IllegalArgumentException("heartbeatTimeout은 최소 1ms 이상이어야 합니다.");
         }
 
         return timeoutMillis;

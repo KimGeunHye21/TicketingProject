@@ -5,7 +5,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 
 @ResponseStatus(HttpStatus.NOT_FOUND)
 public class QueueNotFoundException extends RuntimeException {
-
     public QueueNotFoundException() {
         super("대기열 정보를 찾을 수 없습니다.");
     }

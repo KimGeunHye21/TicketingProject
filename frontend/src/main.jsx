@@ -7,14 +7,10 @@ import './index.css';
 import App from './App.jsx';
 import { AuthProvider } from './contexts/AuthContext.jsx';
 
-createRoot(
-    document.getElementById('root')
-).render(
-    <StrictMode>
+createRoot(document.getElementById('root')).render(<StrictMode>
         <BrowserRouter>
             <AuthProvider>
                 <App />
             </AuthProvider>
         </BrowserRouter>
-    </StrictMode>
-);
+    </StrictMode>);

@@ -30,7 +30,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class EventService {
-
     private static final int EVENT_PAGE_SIZE = 10;
 
     private final EventRepository eventRepository;
@@ -40,52 +39,22 @@ public class EventService {
     // 공연 목록 조회
     public Page<EventSummaryResponse> getEvents(int page) {
         if (page < 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "페이지 번호는 0 이상이어야 합니다."
-            );
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "페이지 번호는 0 이상이어야 합니다.");
         }
 
-        Pageable pageable = PageRequest.of(
-                page,
-                EVENT_PAGE_SIZE,
-                Sort.by(Sort.Direction.DESC, "id")
-        );
+        Pageable pageable = PageRequest.of(page, EVENT_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "id"));
 
-        return eventRepository.findAll(pageable)
-                .map(event -> {
+        return eventRepository.findAll(pageable).map(event -> {
+                    LocalDate startDate = eventSessionRepository.findFirstByEvent_IdOrderByStartAtAsc(event.getId()).map(session -> session.getStartAt().toLocalDate()).orElse(null);
 
-                    LocalDate startDate =
-                            eventSessionRepository
-                                    .findFirstByEvent_IdOrderByStartAtAsc(
-                                            event.getId()
-                                    )
-                                    .map(session ->
-                                            session.getStartAt().toLocalDate()
-                                    )
-                                    .orElse(null);
-
-                    LocalDate endDate =
-                            eventSessionRepository
-                                    .findFirstByEvent_IdOrderByStartAtDesc(
-                                            event.getId()
-                                    )
-                                    .map(session ->
-                                            session.getStartAt().toLocalDate()
-                                    )
-                                    .orElse(null);
+                    LocalDate endDate = eventSessionRepository.findFirstByEvent_IdOrderByStartAtDesc(event.getId()).map(session -> session.getStartAt().toLocalDate()).orElse(null);
 
                     // 공연일이 하루뿐이면 종료일은 보내지 않음
-                    if (startDate != null &&
-                            startDate.equals(endDate)) {
+                    if (startDate != null && startDate.equals(endDate)) {
                         endDate = null;
                     }
 
-                    return EventSummaryResponse.from(
-                            event,
-                            startDate,
-                            endDate
-                    );
+                    return EventSummaryResponse.from(event, startDate, endDate);
                 });
     }
 
@@ -93,15 +62,9 @@ public class EventService {
     public EventDetailResponse getEvent(Long eventId) {
         Event event = findEvent(eventId);
 
-        List<EventSession> sessions =
-                eventSessionRepository
-                        .findAllByEvent_IdOrderByStartAtAsc(eventId);
+        List<EventSession> sessions = eventSessionRepository.findAllByEvent_IdOrderByStartAtAsc(eventId);
 
-        return EventDetailResponse.from(
-                event,
-                sessions,
-                LocalDateTime.now()
-        );
+        return EventDetailResponse.from(event, sessions, LocalDateTime.now());
     }
 
     // 공연 구역 배치도 조회
@@ -110,32 +73,13 @@ public class EventService {
 
         // TODO: 예매 오픈 시각이 지났는지
 
-        List<SectionResponse> sections =
-                sectionRepository
-                        .findAllByEvent_IdOrderByIdAsc(eventId)
-                        .stream()
-                        .map(section -> SectionResponse.from(
-                                section,
-                                countAvailableSeats(
-                                        sessionId,
-                                        section.getId()
-                                )
-                        ))
-                        .toList();
+        List<SectionResponse> sections = sectionRepository.findAllByEvent_IdOrderByIdAsc(eventId).stream().map(section -> SectionResponse.from(section, countAvailableSeats(sessionId, section.getId()))).toList();
 
-        return new SectionMapResponse(
-                event.getId(),
-                event.getSeatMapViewBox(),
-                sections
-        );
+        return new SectionMapResponse(event.getId(), event.getSeatMapViewBox(), sections);
     }
 
     // 공연 좌석 정보 조회
-    public List<SeatResponse> getSeats(
-            Long eventId,
-            Long sessionId,
-            Long sectionId
-    ) {
+    public List<SeatResponse> getSeats(Long eventId, Long sessionId, Long sectionId) {
         // TODO: 예매 오픈 시각이 지났는지
         // TODO: sessionId가 eventId에 속한 회차인지 검증 (try -catch로 처리?
         // TODO: sectionId가 eventId에 속한 구역인지 검증
@@ -143,19 +87,11 @@ public class EventService {
         // TODO: 폴링, SSE 또는 WebSocket 중 실시간 갱신 방식을 결정
         // TODO: sectionId가 null이면 전체 좌석, 값이 있으면 해당 구역만 조회
         // TODO: Seat와 Section을 fetch join해 N+1 조회 문제 방지
-
-        throw new ResponseStatusException(
-                HttpStatus.NOT_IMPLEMENTED,
-                "실시간 좌석 조회 기능은 아직 구현되지 않았습니다."
-        );
+        throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "실시간 좌석 조회 기능은 아직 구현되지 않았습니다.");
     }
 
     private Event findEvent(Long eventId) {
-        return eventRepository.findById(eventId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "공연을 찾을 수 없습니다."
-                ));
+        return eventRepository.findById(eventId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "공연을 찾을 수 없습니다."));
     }
 
     private long countAvailableSeats(Long sessionId, Long sectionId) {

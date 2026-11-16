@@ -20,9 +20,7 @@
 .hero {
   position: relative;
 
-  .base,
-  .framework,
-  .vite {
+  .base, .framework, .vite {
     inset-inline: 0;
     margin: 0 auto;
   }
@@ -33,8 +31,7 @@
     z-index: 0;
   }
 
-  .framework,
-  .vite {
+  .framework, .vite {
     position: absolute;
   }
 
@@ -42,8 +39,7 @@
     z-index: 1;
     top: 34px;
     height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
+    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg) scale(1.4);
   }
 
   .vite {
@@ -51,8 +47,7 @@
     top: 107px;
     height: 26px;
     width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
+    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg) scale(0.8);
   }
 }
 
@@ -165,8 +160,7 @@
   position: relative;
   width: 100%;
 
-  &::before,
-  &::after {
+  &::before, &::after {
     content: '';
     position: absolute;
     top: -4.5px;

@@ -22,63 +22,35 @@ public class QueueCleanUpScheduler {
     /**
      * heartbeat 만료 WAITING 정리
      */
-    @Scheduled(
-            fixedDelayString = "${queue.cleanup.heartbeat.fixed-delay-ms:60000}",
-            initialDelayString = "${queue.cleanup.heartbeat.initial-delay-ms:60000}"
-    )
+    @Scheduled(fixedDelayString = "${queue.cleanup.heartbeat.fixed-delay-ms:60000}", initialDelayString = "${queue.cleanup.heartbeat.initial-delay-ms:60000}")
     public void cancelStaleWaiting() {
-        runForActiveSessions(
-                "heartbeat 만료 WAITING 정리",
-                queueCleanupService::cancelStaleWaiting
-
-
-        );
+        runForActiveSessions("heartbeat 만료 WAITING 정리", queueCleanupService::cancelStaleWaiting);
     }
 
     /**
      * 잘못 남은 waiting ZSET member 정리
      */
-    @Scheduled(
-            fixedDelayString = "${queue.cleanup.dangling.fixed-delay-ms:300000}",
-            initialDelayString = "${queue.cleanup.dangling.initial-delay-ms:300000}"
-    )
+    @Scheduled(fixedDelayString = "${queue.cleanup.dangling.fixed-delay-ms:300000}", initialDelayString = "${queue.cleanup.dangling.initial-delay-ms:300000}")
     public void cleanupDanglingWaitingMembers() {
-        runForActiveSessions(
-                "dangling WAITING member 정리",
-                queueCleanupService::cleanupDanglingWaitingMembers
-        );
+        runForActiveSessions("dangling WAITING member 정리", queueCleanupService::cleanupDanglingWaitingMembers);
     }
 
-    private void runForActiveSessions(
-            String cleanupName,
-            ToIntFunction<Long> cleanupOperation
-    ) {
+    private void runForActiveSessions(String cleanupName, ToIntFunction<Long> cleanupOperation) {
         List<Long> activeSessionIds;
 
         try {
-            activeSessionIds =
-                    eventSessionRepository.findActiveQueueSessionIds(
-                            LocalDateTime.now()
-                    );
+            activeSessionIds = eventSessionRepository.findActiveQueueSessionIds(LocalDateTime.now());
         } catch (RuntimeException exception) {
-            log.error(
-                    "{}: 활성 회차 조회 실패",
-                    cleanupName,
-                    exception
-            );
+            log.error("{}: 활성 회차 조회 실패", cleanupName, exception);
 
             return;
         }
 
         if (activeSessionIds.isEmpty()) {
-            log.debug(
-                    "{}: 정리 대상 활성 회차 없음",
-                    cleanupName
-            );
+            log.debug("{}: 정리 대상 활성 회차 없음", cleanupName);
 
             return;
         }
-
 
         long totalCleanedCount = 0L;
         int failedSessionCount = 0;
@@ -86,43 +58,21 @@ public class QueueCleanUpScheduler {
         for (Long sessionId : activeSessionIds) {
             try {
                 totalCleanedCount += cleanupOperation.applyAsInt(sessionId);
-
             } catch (QueueUnavailableException exception) {
                 failedSessionCount++;
 
-                log.warn(
-                        "{} Redis 처리 실패: sessionId={}",
-                        cleanupName,
-                        sessionId
-                );
-
+                log.warn("{} Redis 처리 실패: sessionId={}", cleanupName, sessionId);
             } catch (RuntimeException exception) {
                 failedSessionCount++;
 
-                log.error(
-                        "{} 처리 실패: sessionId={}",
-                        cleanupName,
-                        sessionId,
-                        exception
-                );
+                log.error("{} 처리 실패: sessionId={}", cleanupName, sessionId, exception);
             }
         }
 
         if (totalCleanedCount > 0L || failedSessionCount > 0) {
-            log.info(
-                    "{} 완료: activeSessions={}, "
-                            + "failedSessions={}, cleanedCount={}",
-                    cleanupName,
-                    activeSessionIds.size(),
-                    failedSessionCount,
-                    totalCleanedCount
-            );
+            log.info("{} 완료: activeSessions={}, " + "failedSessions={}, cleanedCount={}", cleanupName, activeSessionIds.size(), failedSessionCount, totalCleanedCount);
         } else {
-            log.debug(
-                    "{} 완료: activeSessions={}, cleanedCount=0",
-                    cleanupName,
-                    activeSessionIds.size()
-            );
+            log.debug("{} 완료: activeSessions={}, cleanedCount=0", cleanupName, activeSessionIds.size());
         }
     }
 }

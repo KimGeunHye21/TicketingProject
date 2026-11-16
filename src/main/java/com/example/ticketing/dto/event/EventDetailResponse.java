@@ -17,16 +17,8 @@ public record EventDetailResponse(
         LocalDateTime bookingOpenAt,
         List<EventSessionResponse> sessions
 ) {
-
-    public static EventDetailResponse from(
-            Event event,
-            List<EventSession> sessions,
-            LocalDateTime now
-    ) {
-        List<EventSessionResponse> sessionResponses =
-                sessions.stream()
-                        .map(EventSessionResponse::from)
-                        .toList();
+    public static EventDetailResponse from(Event event, List<EventSession> sessions, LocalDateTime now) {
+        List<EventSessionResponse> sessionResponses = sessions.stream().map(EventSessionResponse::from).toList();
 
         return new EventDetailResponse(
                 event.getId(),

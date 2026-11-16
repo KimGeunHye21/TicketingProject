@@ -14,101 +14,50 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 
-
 @Service
 @RequiredArgsConstructor
 public class AdmissionTokenService {
-
     private static final int MAX_ISSUE_ATTEMPTS = 3;
     private final AdmissionTokenRedisStore admissionTokenRedisStore;
 
-    public Optional<AdmissionToken> issueIfAbsent(
-            QueueTicket ticket,
-            Instant selectingExpiresAt
-    ) {
-        validateTicket(
-                ticket,
-                selectingExpiresAt
-        );
+    public Optional<AdmissionToken> issueIfAbsent(QueueTicket ticket, Instant selectingExpiresAt) {
+        validateTicket(ticket, selectingExpiresAt);
 
         // 해시가 충돌해도 최대 3번까지 해시 생성
         for (int attempt = 0; attempt < MAX_ISSUE_ATTEMPTS; attempt++) {
-
-            AdmissionToken candidate =
-                    AdmissionToken.issue(
-                            Instant.now(),
-                            selectingExpiresAt
-                    );
+            AdmissionToken candidate = AdmissionToken.issue(Instant.now(), selectingExpiresAt);
 
             try {
-                return admissionTokenRedisStore.saveIfAbsent(
-                        ticket,
-                        candidate
-                );
-
+                return admissionTokenRedisStore.saveIfAbsent(ticket, candidate);
             } catch (AdmissionTokenHashCollisionException exception) {
-
                 if (attempt == MAX_ISSUE_ATTEMPTS -1) {
                     throw new QueueUnavailableException(exception);
                 }
             }
         }
 
-        throw new QueueUnavailableException(
-                new IllegalStateException(
-                        "입장 토큰 발급을 완료하지 못했습니다."
-                )
-        );
+        throw new QueueUnavailableException(new IllegalStateException("입장 토큰 발급을 완료하지 못했습니다."));
     }
 
-    private void validateTicket(
-            QueueTicket ticket,
-            Instant selectingExpiresAt
-    ) {
-        Objects.requireNonNull(
-                ticket,
-                "QueueTicket은 필수입니다."
-        );
+    private void validateTicket(QueueTicket ticket, Instant selectingExpiresAt) {
+        Objects.requireNonNull(ticket, "QueueTicket은 필수입니다.");
 
-        Objects.requireNonNull(
-                selectingExpiresAt,
-                "selectingExpiresAt은 필수입니다."
-        );
+        Objects.requireNonNull(selectingExpiresAt, "selectingExpiresAt은 필수입니다.");
 
         Instant ticketSelectingExpiresAt = ticket.selectingExpiresAt();
 
         if (ticketSelectingExpiresAt == null) {
-            throw new IllegalStateException(
-                    "SELECTING 티켓에 selectingExpiresAt이 없습니다."
-            );
+            throw new IllegalStateException("SELECTING 티켓에 selectingExpiresAt이 없습니다.");
         }
 
         // QueueStatusSnapshot에서 조회한 값과
         // QueueTicket에 저장된 값이 같은지 확인
-        if (!ticketSelectingExpiresAt.equals(
-                selectingExpiresAt
-        )) {
-            throw new IllegalStateException(
-                    "티켓과 상태 조회 결과의 "
-                            + "selectingExpiresAt이 일치하지 않습니다."
-            );
+        if (!ticketSelectingExpiresAt.equals(selectingExpiresAt)) {
+            throw new IllegalStateException("티켓과 상태 조회 결과의 " + "selectingExpiresAt이 일치하지 않습니다.");
         }
     }
 
-
-    public VerifiedAdmission verifyOrThrow(
-            String rawToken,
-            Long userId,
-            Long eventId,
-            Long sessionId
-    ) {
-        return admissionTokenRedisStore
-                .verify(rawToken, userId, eventId, sessionId)
-                .orElseThrow(() -> new AdmissionRequiredException(
-                        "예매 진행 권한이 필요합니다.")
-                );
+    public VerifiedAdmission verifyOrThrow(String rawToken, Long userId, Long eventId, Long sessionId) {
+        return admissionTokenRedisStore.verify(rawToken, userId, eventId, sessionId).orElseThrow(() -> new AdmissionRequiredException("예매 진행 권한이 필요합니다."));
     }
-
-
-
 }

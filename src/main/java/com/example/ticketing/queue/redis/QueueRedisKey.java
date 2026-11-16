@@ -1,7 +1,6 @@
 package com.example.ticketing.queue.redis;
 
 public final class QueueRedisKey {
-
     private QueueRedisKey() {
     }
 
@@ -9,10 +8,7 @@ public final class QueueRedisKey {
      * 동일 사용자·동일 회차의 티켓 ID
      * Value: queueTicketId
      */
-    public static String userTicket(
-            Long sessionId,
-            Long userId
-    ) {
+    public static String userTicket(Long sessionId, Long userId) {
         return userTicketPrefix(sessionId)
                 + userId;
     }
@@ -20,12 +16,9 @@ public final class QueueRedisKey {
     /**
      * Lua에서 사용자 매핑 키를 만들 때 사용하는 접두사
      */
-    public static String userTicketPrefix(
-            Long sessionId
-    ) {
+    public static String userTicketPrefix(Long sessionId) {
         return prefix(sessionId) + "user:";
     }
-
 
     /**
      * 회차별 대기 순번 카운터
@@ -44,14 +37,10 @@ public final class QueueRedisKey {
         return prefix(sessionId) + "waiting";
     }
 
-
     /**
      * 개별 대기열 티켓 Hash
      */
-    public static String ticket(
-            Long sessionId,
-            String queueTicketId
-    ) {
+    public static String ticket(Long sessionId, String queueTicketId) {
         return ticketPrefix(sessionId)
                 + queueTicketId;
     }
@@ -76,24 +65,15 @@ public final class QueueRedisKey {
         return prefix(sessionId) + "heartbeat";
     }
 
-
-
-
-
     /**
      * 티켓 ID → 입장 토큰 매핑
      */
-    public static String admissionTicket(
-            Long sessionId,
-            String queueTicketId
-    ) {
+    public static String admissionTicket(Long sessionId, String queueTicketId) {
         return admissionTicketPrefix(sessionId)
                 + queueTicketId;
     }
 
-    public static String admissionTicketPrefix(
-            Long sessionId
-    ) {
+    public static String admissionTicketPrefix(Long sessionId) {
         return prefix(sessionId)
                 + "admission:ticket:";
     }
@@ -101,37 +81,27 @@ public final class QueueRedisKey {
     /**
      * 토큰 해시 → 입장 정보
      */
-    public static String admissionToken(
-            Long sessionId,
-            String tokenHash
-    ) {
+    public static String admissionToken(Long sessionId, String tokenHash) {
         return admissionTokenPrefix(sessionId)
                 + tokenHash;
     }
 
-    public static String admissionTokenPrefix(
-            Long sessionId
-    ) {
+    public static String admissionTokenPrefix(Long sessionId) {
         return prefix(sessionId)
                 + "admission:token:";
     }
 
-
     /**
      * 현재 SELECTING 상태인 티켓 ZSET
      */
-    public static String selectingQueue(
-            Long sessionId
-    ) {
+    public static String selectingQueue(Long sessionId) {
         return prefix(sessionId) + "selecting";
     }
 
     /**
      * waiting ZSET 정리용 ZSCAN cursor
      */
-    public static String waitingCleanupCursor(
-            Long sessionId
-    ) {
+    public static String waitingCleanupCursor(Long sessionId) {
         return prefix(sessionId)
                 + "cleanup:waiting:cursor";
     }

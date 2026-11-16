@@ -26,115 +26,63 @@ public class SecurityConfig {
     private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
     @Bean
-    public SecurityFilterChain securityFilterChain(
-            HttpSecurity http
-    ) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtTokenProvider);
 
-        JwtAuthenticationFilter jwtAuthenticationFilter =
-                new JwtAuthenticationFilter(jwtTokenProvider);
-
-        http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) //cors 설정
+        http.cors(cors -> cors.configurationSource(corsConfigurationSource())) //cors 설정
                 .csrf(AbstractHttpConfigurer::disable) // CSRF 보호 기능 끔
 
-                .formLogin(AbstractHttpConfigurer::disable)
-                .httpBasic(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable).httpBasic(AbstractHttpConfigurer::disable)
 
                 // 인증되지 않은 사용자의 접근은 401 반환
-                .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint(
+                .exceptionHandling(exception -> exception.authenticationEntryPoint(
                                 (request, response, authException) -> {
+                                    log.warn("401 인증 실패: {} {}, 인증 헤더 ={}, 원인={}", request.getMethod(), request.getRequestURI(), request.getHeader("Authorization") != null, authException.getMessage());
 
-                                    log.warn("401 인증 실패: {} {}, 인증 헤더 ={}, 원인={}",
-                                            request.getMethod(),
-                                            request.getRequestURI(),
-                                            request.getHeader("Authorization") != null,
-                                            authException.getMessage());
-
-                                    response.sendError(
-                                            HttpServletResponse.SC_UNAUTHORIZED
-                                    );
+                                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
                                 })
                 )
 
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS // 서버가 로그인 상태를 세션에 저장하지 않음
-                        )
-                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS // 서버가 로그인 상태를 세션에 저장하지 않음
+                        ))
 
                 .authorizeHttpRequests(auth -> auth
 
                         // 로그인 전에도 호출 가능
-                        .requestMatchers(
-                                "/auth/login/**",
-                                "/auth/refresh"
-                        ).permitAll()
+                        .requestMatchers("/auth/login/**", "/auth/refresh").permitAll()
 
                         // 로그인 필요
                         // TODO: 예매 관련 url 추가
-                        .requestMatchers(
-                                "/auth/me",
-                                "/auth/logout",
-                                "/auth/withdraw",
-                                "/queue/events/*/sessions/*"
-                        ).authenticated()
+                        .requestMatchers("/auth/me", "/auth/logout", "/auth/withdraw", "/queue/events/*/sessions/*").authenticated()
 
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/events/*/sessions/*/sections",
-                                "/events/*/sessions/*/seats"
-                        ).authenticated()
+                        .requestMatchers(HttpMethod.GET, "/events/*/sessions/*/sections", "/events/*/sessions/*/seats").authenticated()
 
                         // 아직 다른 API 정책은 안 정했으므로 허용
                         .anyRequest().permitAll()
                 )
 
                 //JWT 검사 필터를 권한 검사보다 먼저 실행
-                .addFilterBefore(
-                        jwtAuthenticationFilter,
-                        AuthorizationFilter.class
-                );
+                .addFilterBefore(jwtAuthenticationFilter, AuthorizationFilter.class);
 
         return http.build();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-
-        CorsConfiguration configuration =
-                new CorsConfiguration();
+        CorsConfiguration configuration = new CorsConfiguration();
 
         // React 개발 서버
-        configuration.setAllowedOrigins(
-                List.of("http://localhost:5173")
-        );
+        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
 
-        configuration.setAllowedMethods(
-                List.of(
-                        "GET",
-                        "POST",
-                        "PUT",
-                        "PATCH",
-                        "DELETE",
-                        "OPTIONS"
-                )
-        );
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
-        configuration.setAllowedHeaders(
-                List.of("*")
-        );
+        configuration.setAllowedHeaders(List.of("*"));
 
         configuration.setAllowCredentials(true);
 
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
-
-        source.registerCorsConfiguration(
-                "/**",
-                configuration
-        );
+        source.registerCorsConfiguration("/**", configuration);
 
         return source;
     }

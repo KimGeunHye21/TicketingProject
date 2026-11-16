@@ -1,113 +1,63 @@
-import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useState
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 import api from '../api/api';
-
 
 // 로그인 정보를 담을 Context 생성
 const AuthContext = createContext(null);
 
-
 export function AuthProvider({ children }) {
-
     // 로그인한 사용자 정보
-    const [user, setUser] =
-        useState(null);
+    const [user, setUser] = useState(null);
 
     // 로그인 상태 확인이 끝났는지
-    const [loading, setLoading] =
-        useState(true);
-
+    const [loading, setLoading] = useState(true);
 
     // 현재 로그인 상태 확인
-    const checkAuth =
-        useCallback(async () => {
-
+    const checkAuth = useCallback(async () => {
             setLoading(true);
 
             try {
-                let accessToken =
-                    sessionStorage.getItem('accessToken');
+                let accessToken = sessionStorage.getItem('accessToken');
 
                 // Access Token은 없지만 Refresh Cookie가 있을 수 있음
                 if (!accessToken) {
-                    const refreshResponse =
-                        await api.post('/auth/refresh');
+                    const refreshResponse = await api.post('/auth/refresh');
 
-                    accessToken =
-                        refreshResponse.data.accessToken;
+                    accessToken = refreshResponse.data.accessToken;
 
-                    sessionStorage.setItem(
-                        'accessToken',
-                        accessToken
-                    );
+                    sessionStorage.setItem('accessToken', accessToken);
                 }
 
-                const response =
-                    await api.get('/auth/me');
+                const response = await api.get('/auth/me');
 
                 setUser(response.data);
-
             } catch (error) {
-                sessionStorage.removeItem(
-                    'accessToken'
-                );
+                sessionStorage.removeItem('accessToken');
 
                 setUser(null);
-
             } finally {
                 setLoading(false);
             }
-
         }, []);
-
 
     // 앱 처음 실행될 때 로그인 상태 확인
     useEffect(() => {
-
         void checkAuth();
-
     }, [checkAuth]);
 
-
     // 로그인 여부
-    const isLoggedIn =
-        user !== null;
+    const isLoggedIn = user !== null;
 
-    console.log(
-        'AuthContext 상태:',
-        {
-            user,
-            isLoggedIn,
-            loading,
-            accessToken:
-                sessionStorage.getItem('accessToken')
-        }
-    );
+    console.log('AuthContext 상태:', { user, isLoggedIn, loading, accessToken: sessionStorage.getItem('accessToken') });
 
     return (
-        <AuthContext.Provider
-            value={{
-                user,
-                isLoggedIn,
-                loading,
-                checkAuth,
-                setUser
-            }}
-        >
+        <AuthContext.Provider value={{ user, isLoggedIn, loading, checkAuth, setUser }} >
             {children}
         </AuthContext.Provider>
     );
 }
 
-
 // 다른 컴포넌트에서 편하게 사용하기 위한 함수
 export function useAuth() {
-
     return useContext(AuthContext);
 }

@@ -1,21 +1,11 @@
 import { useParams } from 'react-router-dom';
 
-
 function SectionSelectPage() {
-
     const { eventId, sessionId } = useParams();
-
 
     return (
 
-        <main style={{
-            minHeight: '80vh',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '16px'
-        }}>
+        <main style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
 
             <h1>구역 선택</h1>
 

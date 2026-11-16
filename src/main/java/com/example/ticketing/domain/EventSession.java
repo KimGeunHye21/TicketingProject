@@ -12,21 +12,14 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class EventSession {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "event_id",
-            nullable = false
-    )
+    @JoinColumn(name = "event_id", nullable = false)
     private Event event;
 
-    @Column(
-            name = "start_at",
-            nullable = false
-    )
+    @Column(name = "start_at", nullable = false)
     private LocalDateTime startAt;
 }

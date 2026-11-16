@@ -20,41 +20,34 @@ function App() {
             {/* 로그인 없어도 접근 가능 */}
 
             <Route
-                path="/"
-                element={<EventListPage />}
+                path="/" element={<EventListPage />}
             />
 
             <Route
-                path="/login"
-                element={<LoginPage />}
+                path="/login" element={<LoginPage />}
             />
 
             <Route
-                path="/oauth/google/callback"
-                element={<OAuthCallbackPage />}
+                path="/oauth/google/callback" element={<OAuthCallbackPage />}
             />
 
             <Route
-                path="/auth/terms"
-                element={<TermsPage />}
+                path="/auth/terms" element={<TermsPage />}
             />
 
             <Route
-                path="/auth/privacy"
-                element={<PrivacyPage />}
+                path="/auth/privacy" element={<PrivacyPage />}
             />
 
 
             {/* 공연 */}
 
             <Route
-                path="/events"
-                element={<EventListPage />}
+                path="/events" element={<EventListPage />}
             />
 
             <Route
-                path="/events/:eventId"
-                element={<EventDetailPage />}
+                path="/events/:eventId" element={<EventDetailPage />}
             />
 
 
@@ -63,8 +56,7 @@ function App() {
             {/* 로그인 필요 */}
 
             <Route
-                path="/logout"
-                element={
+                path="/logout" element={
                     <ProtectedRoute>
                         <LogoutPage />
                     </ProtectedRoute>
@@ -72,8 +64,7 @@ function App() {
             />
 
             <Route
-                path="/withdraw"
-                element={
+                path="/withdraw" element={
                     <ProtectedRoute>
                         <WithdrawPage />
                     </ProtectedRoute>
@@ -82,8 +73,7 @@ function App() {
 
             {/* 대기열 */}
             <Route
-                path="/queue/events/:eventId/sessions/:sessionId"
-                element={
+                path="/queue/events/:eventId/sessions/:sessionId" element={
                     <ProtectedRoute>
                         <QueuePage />
                     </ProtectedRoute>
@@ -92,8 +82,7 @@ function App() {
 
             {/* 구역 선택 */}
             <Route
-                path="/booking/events/:eventId/sessions/:sessionId/sections"
-                element={
+                path="/booking/events/:eventId/sessions/:sessionId/sections" element={
                     <ProtectedRoute>
                         <SectionSelectPage />
                     </ProtectedRoute>
