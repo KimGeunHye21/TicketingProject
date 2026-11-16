@@ -251,18 +251,19 @@ function EventDetailPage() {
 
 
     /* =========================
-       좌석 선택 페이지 이동
+       대기열 페이지 이동
     ========================= */
 
     const handleSeatSelection = () => {
 
         if (!selectedSessionId) {
+            alert('공연 회차를 선택해 주세요.');
             return;
         }
 
 
         navigate(
-            `/events/${eventId}/sessions/${selectedSessionId}/seats`
+            `/queue/events/${eventId}/sessions/${selectedSessionId}`
         );
     };
 

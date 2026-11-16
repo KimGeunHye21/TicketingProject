@@ -2,6 +2,9 @@ package com.example.ticketing.security;
 
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -20,6 +23,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
     private final JwtTokenProvider jwtTokenProvider;
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -39,11 +43,18 @@ public class SecurityConfig {
                 // 인증되지 않은 사용자의 접근은 401 반환
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(
-                                (request, response, authException) ->
-                                        response.sendError(
-                                                HttpServletResponse.SC_UNAUTHORIZED
-                                        )
-                        )
+                                (request, response, authException) -> {
+
+                                    log.warn("401 인증 실패: {} {}, 인증 헤더 ={}, 원인={}",
+                                            request.getMethod(),
+                                            request.getRequestURI(),
+                                            request.getHeader("Authorization") != null,
+                                            authException.getMessage());
+
+                                    response.sendError(
+                                            HttpServletResponse.SC_UNAUTHORIZED
+                                    );
+                                })
                 )
 
                 .sessionManagement(session ->

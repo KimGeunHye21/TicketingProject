@@ -9,11 +9,14 @@ import ProtectedRoute from './components/ProtectedRoute';
 import WithdrawPage from './pages/auth/WithdrawPage';
 import EventListPage from './pages/event/EventListPage';
 import EventDetailPage from './pages/event/EventDetailPage';
+import QueuePage from './pages/queue/QueuePage';
+import SectionSelectPage from './pages/booking/SectionSelectPage';
 
 function App() {
     return (
         <Routes>
 
+            {/* 로그인 없어도 접근 가능 */}
             {/* 로그인 없어도 접근 가능 */}
 
             <Route
@@ -42,7 +45,8 @@ function App() {
             />
 
 
-            {/*  공연 */}
+            {/* 공연 */}
+
             <Route
                 path="/events"
                 element={<EventListPage />}
@@ -55,6 +59,7 @@ function App() {
 
 
 
+            {/* 로그인 필요 */}
             {/* 로그인 필요 */}
 
             <Route
@@ -74,6 +79,29 @@ function App() {
                     </ProtectedRoute>
                 }
             />
+
+            {/* 대기열 */}
+            <Route
+                path="/queue/events/:eventId/sessions/:sessionId"
+                element={
+                    <ProtectedRoute>
+                        <QueuePage />
+                    </ProtectedRoute>
+                }
+            />
+
+            {/* 구역 선택 */}
+            <Route
+                path="/booking/events/:eventId/sessions/:sessionId/sections"
+                element={
+                    <ProtectedRoute>
+                        <SectionSelectPage />
+                    </ProtectedRoute>
+                }
+            />
+
+
+
         </Routes>
     );
 }
