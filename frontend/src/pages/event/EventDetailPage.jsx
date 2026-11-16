@@ -143,17 +143,35 @@ function EventDetailPage() {
             return false;
         }
 
+        const now = new Date();
+        const bookingOpenAt = new Date(event.bookingOpenAt);
 
-        const now =
-            new Date();
+        return now >= bookingOpenAt;
+    };
 
-        const bookingOpenAt =
-            new Date(
-                event.bookingOpenAt
+    /* =========================
+        공연 종료 여부
+    ========================= */
+
+    const isEventEnded = () => {
+
+        if (!event || !event.sessions) {
+            return true;
+        }
+
+        const now = new Date();
+
+
+        // 현재 시각 이후의 공연 회차가 하나라도 있으면
+        // 아직 예매 가능한 공연
+        const hasFutureSession =
+            event.sessions.some(
+                (session) =>
+                    new Date(session.startAt) > now
             );
 
 
-        return now >= bookingOpenAt;
+        return !hasFutureSession;
     };
 
 
@@ -432,11 +450,12 @@ function EventDetailPage() {
 
                         {!isBookingOpen() ? (
 
+                            // 예매 시작 전
                             <div className="booking-dday">
 
-                                <span>
-                                    예매 오픈까지
-                                </span>
+                            <span>
+                                예매 오픈까지
+                            </span>
 
                                 <strong>
                                     {getBookingDDay()}
@@ -444,8 +463,20 @@ function EventDetailPage() {
 
                             </div>
 
+                        ) : isEventEnded() ? (
+
+                            // 공연 종료
+                            <button
+                                type="button"
+                                className="booking-button booking-closed-button"
+                                disabled
+                            >
+                                예매가 종료되었습니다
+                            </button>
+
                         ) : (
 
+                            // 예매 가능
                             <button
                                 type="button"
                                 className="booking-button"
@@ -501,7 +532,11 @@ function EventDetailPage() {
 
                     <div className="session-list">
 
-                        {event.sessions.length === 0 ? (
+                        {event.sessions.filter(
+                            (session) =>
+                                new Date(session.startAt) >
+                                new Date()
+                        ).length === 0 ? (
 
                             <p className="session-empty">
                                 선택 가능한 공연이 없습니다.
@@ -509,33 +544,37 @@ function EventDetailPage() {
 
                         ) : (
 
-                            event.sessions.map(
-                                (session) => (
-
-                                    <button
-                                        key={session.sessionId}
-                                        type="button"
-                                        className={
-                                            selectedSessionId ===
-                                            session.sessionId
-                                                ? 'session-item selected'
-                                                : 'session-item'
-                                        }
-                                        onClick={() =>
-                                            setSelectedSessionId(
-                                                session.sessionId
-                                            )
-                                        }
-                                    >
-
-                                        {formatDateTime(
-                                            session.startAt
-                                        )}
-
-                                    </button>
-
+                            event.sessions
+                                .filter(
+                                    (session) =>
+                                        new Date(session.startAt) >
+                                        new Date()
                                 )
-                            )
+                                .map(
+                                    (session) => (
+
+                                        <button
+                                            key={session.sessionId}
+                                            type="button"
+                                            className={
+                                                selectedSessionId ===
+                                                session.sessionId
+                                                    ? 'session-item selected'
+                                                    : 'session-item'
+                                            }
+                                            onClick={() =>
+                                                setSelectedSessionId(
+                                                    session.sessionId
+                                                )
+                                            }
+                                        >
+                                            {formatDateTime(
+                                                session.startAt
+                                            )}
+                                        </button>
+
+                                    )
+                                )
 
                         )}
 

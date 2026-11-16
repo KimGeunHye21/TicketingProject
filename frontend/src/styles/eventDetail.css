@@ -326,3 +326,16 @@
     }
 
 }
+
+.booking-closed-button {
+    background: #b7b7b7;
+
+    color: #ffffff;
+
+    cursor: not-allowed;
+}
+
+
+.booking-closed-button:hover {
+    opacity: 1;
+}
