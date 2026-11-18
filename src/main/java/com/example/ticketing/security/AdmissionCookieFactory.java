@@ -31,7 +31,14 @@ public class AdmissionCookieFactory {
         long maxAgeSeconds = calculateMaxAgeSeconds(now, admissionToken.expiresAt());
 
         // 브라우저 쿠키 형태로 변환
-        return ResponseCookie.from(cookieName(sessionId), admissionToken.value()).httpOnly(true).secure(secure).sameSite("Strict").path(COOKIE_PATH).maxAge(Duration.ofSeconds(maxAgeSeconds)).build();
+        return ResponseCookie.from(
+                cookieName(sessionId), admissionToken.value()).
+                httpOnly(true).
+                secure(secure).
+                sameSite("Strict").
+                path(COOKIE_PATH).
+                maxAge(Duration.ofSeconds(maxAgeSeconds)).
+                build();
     }
 
     public ResponseCookie delete(Long sessionId) {

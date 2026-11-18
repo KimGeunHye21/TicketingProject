@@ -43,7 +43,7 @@ public class EventController {
     public ResponseEntity<SectionMapResponse> getSections(@AuthenticationPrincipal CustomUserDetails userDetails,
                                                           @PathVariable Long eventId,
                                                           @PathVariable Long sessionId, HttpServletRequest request) {
-        verifyAdmission(request, userDetails.getUserId(), eventId, sessionId);
+        // verifyAdmission(request, userDetails.getUserId(), eventId, sessionId);
 
         return ResponseEntity.ok(eventService.getSectionMap(eventId, sessionId));
     }
@@ -57,15 +57,17 @@ public class EventController {
             @RequestParam(required = false) Long sectionId,
             HttpServletRequest request
     ) {
-        verifyAdmission(request, userDetails.getUserId(), eventId, sessionId);
+        // verifyAdmission(request, userDetails.getUserId(), eventId, sessionId);
 
         return ResponseEntity.ok(eventService.getSeats(eventId, sessionId, sectionId));
     }
 
     private void verifyAdmission(HttpServletRequest request, Long userId, Long eventId, Long sessionId) {
+        // 검사할 쿠키 이름
         String cookieName = admissionCookieFactory.cookieName(sessionId);
+        // 요청에 포함된 쿠키를 찾음
         Cookie admissionCookie = WebUtils.getCookie(request, cookieName);
-
+        // 쿠키에서 토큰 문자열만 꺼냄
         String rawToken = admissionCookie == null ? null : admissionCookie.getValue();
 
         admissionTokenService.verifyOrThrow(rawToken, userId, eventId, sessionId);

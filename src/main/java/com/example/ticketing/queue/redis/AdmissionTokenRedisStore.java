@@ -321,7 +321,7 @@ public class AdmissionTokenRedisStore {
     }
 
     /**
-     * 구역·좌석 API에서 사용할 입장 토큰 검증 스크립트.
+     * 좌석 API에서 사용하는 입장 토큰 검증 스크립트
      */
     private static final DefaultRedisScript<String>
             VERIFY_SCRIPT = new DefaultRedisScript<>("""
@@ -360,7 +360,6 @@ public class AdmissionTokenRedisStore {
 
 
                 local redisTime = redis.call('TIME')
-
                 local nowMillis =
                     tonumber(redisTime[1]) * 1000
                     + math.floor(tonumber(redisTime[2]) / 1000)
@@ -413,29 +412,22 @@ public class AdmissionTokenRedisStore {
                 end
 
 
-                return values[1]
-                    .. '|'
-                    .. values[2]
-                    .. '|'
-                    .. values[3]
-                    .. '|'
-                    .. values[4]
-                    .. '|'
-                    .. values[5]
+                return values[1]..'|'.. values[2]..'|'.. values[3]..'|'.. values[4]..'|'.. values[5]
                 """, String.class);
 
     /**
      * 구역·좌석 API에서 호출할 검증 메서드
      */
-    public Optional<VerifiedAdmission> verify(String rawToken, Long expectedUserId, Long expectedEventId, Long expectedSessionId) {
+    public Optional<VerifiedAdmission> verify(String rawToken,
+                                              Long expectedUserId,
+                                              Long expectedEventId,
+                                              Long expectedSessionId) {
         if (rawToken == null || rawToken.isBlank()) {
             return Optional.empty();
         }
 
         Objects.requireNonNull(expectedUserId, "expectedUserId는 필수입니다.");
-
         Objects.requireNonNull(expectedEventId, "expectedEventId는 필수입니다.");
-
         Objects.requireNonNull(expectedSessionId, "expectedSessionId는 필수입니다.");
 
         // 클라이언트가 가지고 있는 원문 토큰을

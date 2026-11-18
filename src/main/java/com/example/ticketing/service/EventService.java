@@ -9,6 +9,8 @@ import com.example.ticketing.dto.event.EventSummaryResponse;
 import com.example.ticketing.dto.event.SeatResponse;
 import com.example.ticketing.dto.event.SectionMapResponse;
 import com.example.ticketing.dto.event.SectionResponse;
+import com.example.ticketing.exception.BookingNotOpenException;
+import com.example.ticketing.exception.EventSessionNotFoundException;
 import com.example.ticketing.repository.EventRepository;
 import com.example.ticketing.repository.EventSessionRepository;
 import com.example.ticketing.repository.SectionRepository;
@@ -70,10 +72,24 @@ public class EventService {
     // 공연 구역 배치도 조회
     public SectionMapResponse getSectionMap(Long eventId, Long sessionId) {
         Event event = findEvent(eventId);
+        EventSession session = eventSessionRepository.findByIdAndEvent_Id(sessionId, eventId)
+                .orElseThrow(() -> new EventSessionNotFoundException(eventId, sessionId));
+        LocalDateTime now = LocalDateTime.now();
 
-        // TODO: 예매 오픈 시각이 지났는지
+        // 유효한 예매 시간인지
+        if (now.isBefore(event.getBookingOpenAt())) {
+            throw BookingNotOpenException.beforeOpen(event.getBookingOpenAt());
+        }
+        if (!now.isBefore(session.getStartAt())) {
+            throw BookingNotOpenException.sessionStarted(session.getStartAt());
+        }
 
-        List<SectionResponse> sections = sectionRepository.findAllByEvent_IdOrderByIdAsc(eventId).stream().map(section -> SectionResponse.from(section, countAvailableSeats(sessionId, section.getId()))).toList();
+        List<SectionResponse> sections = sectionRepository.findAllByEvent_IdOrderByIdAsc(eventId).
+                stream().
+                map(section -> SectionResponse.from(
+                        section,
+                        countAvailableSeats(sessionId, section.getId()))).
+                toList();
 
         return new SectionMapResponse(event.getId(), event.getSeatMapViewBox(), sections);
     }
@@ -85,7 +101,6 @@ public class EventService {
         // TODO: sectionId가 eventId에 속한 구역인지 검증
         // TODO: DB의 RESERVED 상태와 Redis의 임시 선점 상태를 함께 조회
         // TODO: 폴링, SSE 또는 WebSocket 중 실시간 갱신 방식을 결정
-        // TODO: sectionId가 null이면 전체 좌석, 값이 있으면 해당 구역만 조회
         // TODO: Seat와 Section을 fetch join해 N+1 조회 문제 방지
         throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "실시간 좌석 조회 기능은 아직 구현되지 않았습니다.");
     }

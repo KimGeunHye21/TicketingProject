@@ -59,7 +59,6 @@ public class QueueService {
         if (now.isBefore(event.getBookingOpenAt())) {
             throw BookingNotOpenException.beforeOpen(event.getBookingOpenAt());
         }
-
         if (!now.isBefore(session.getStartAt())) {
             throw BookingNotOpenException.sessionStarted(session.getStartAt());
         }

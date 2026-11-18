@@ -58,6 +58,7 @@ public class AdmissionTokenService {
     }
 
     public VerifiedAdmission verifyOrThrow(String rawToken, Long userId, Long eventId, Long sessionId) {
-        return admissionTokenRedisStore.verify(rawToken, userId, eventId, sessionId).orElseThrow(() -> new AdmissionRequiredException("예매 진행 권한이 필요합니다."));
+        return admissionTokenRedisStore.verify(rawToken, userId, eventId, sessionId).
+                orElseThrow(() -> new AdmissionRequiredException("예매 진행 권한이 필요합니다."));
     }
 }
