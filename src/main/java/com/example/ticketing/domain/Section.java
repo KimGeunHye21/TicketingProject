@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "section")
@@ -24,14 +25,29 @@ public class Section {
     @Column(nullable = false)
     private Integer price;
 
-    @Column(name = "svg_path", columnDefinition = "TEXT")
-    private String svgPath;
+    @Column(nullable = false, precision = 5, scale = 2)
+    private BigDecimal x1;
 
-    @Column(name = "label_x")
-    private Integer labelX;
+    @Column(nullable = false, precision = 5, scale = 2)
+    private BigDecimal y1;
 
-    @Column(name = "label_y")
-    private Integer labelY;
+    @Column(nullable = false, precision = 5, scale = 2)
+    private BigDecimal x2;
+
+    @Column(nullable = false, precision = 5, scale = 2)
+    private BigDecimal y2;
+
+    @Column(nullable = false, precision = 5, scale = 2)
+    private BigDecimal x3;
+
+    @Column(nullable = false, precision = 5, scale = 2)
+    private BigDecimal y3;
+
+    @Column(nullable = false, precision = 5, scale = 2)
+    private BigDecimal x4;
+
+    @Column(nullable = false, precision = 5, scale = 2)
+    private BigDecimal y4;
 
     @Column(length = 20)
     private String color;
