@@ -11,6 +11,7 @@ import EventListPage from './pages/event/EventListPage';
 import EventDetailPage from './pages/event/EventDetailPage';
 import QueuePage from './pages/queue/QueuePage';
 import SectionSelectPage from './pages/booking/SectionSelectPage';
+import SeatSelectPage from './pages/booking/SeatSelectPage';
 
 function App() {
     return (
@@ -76,6 +77,15 @@ function App() {
                 path="/queue/events/:eventId/sessions/:sessionId" element={
                     <ProtectedRoute>
                         <QueuePage />
+                    </ProtectedRoute>
+                }
+            />
+
+            {/* 좌석 조회 */}
+            <Route
+                path="/booking/events/:eventId/sessions/:sessionId/sections/:sectionId/seats" element={
+                    <ProtectedRoute>
+                        <SeatSelectPage />
                     </ProtectedRoute>
                 }
             />

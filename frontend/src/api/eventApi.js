@@ -13,3 +13,18 @@ export const getEventDetail = async (eventId) => {
 
     return response.data;
 };
+
+// 공연 구역 배치도 조회
+export const getSectionMap = async (eventId, sessionId, signal) => {
+    const response = await api.get(`/events/${eventId}/sessions/${sessionId}/sections`, { signal });
+    return response.data;
+};
+
+// 선택한 구역의 좌석 조회
+export const getSectionSeats = async (eventId, sessionId, sectionId, signal) => {
+    const response = await api.get(`/events/${eventId}/sessions/${sessionId}/seats`, {
+        params: { sectionId },
+        signal
+    });
+    return response.data;
+};
