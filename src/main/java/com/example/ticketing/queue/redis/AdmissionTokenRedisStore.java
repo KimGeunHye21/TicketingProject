@@ -443,8 +443,10 @@ public class AdmissionTokenRedisStore {
         String tokenHash = hashToken(rawToken);
 
         try {
-            String result = redisTemplate.execute(VERIFY_SCRIPT,  List.of(// tokenHash로 역방향 조회
-                            QueueRedisKey.admissionToken(expectedSessionId, tokenHash)),  expectedUserId.toString(),                              // ARGV[1]: 요청 사용자 ID
+            String result = redisTemplate.execute(VERIFY_SCRIPT,
+                    List.of(// tokenHash로 역방향 조회
+                            QueueRedisKey.admissionToken(expectedSessionId, tokenHash)),
+                    expectedUserId.toString(),                              // ARGV[1]: 요청 사용자 ID
                     expectedEventId.toString(),                             // ARGV[2]: 요청 공연 ID
                     expectedSessionId.toString(),                           // ARGV[3]: 요청 회차 ID
                     QueueRedisKey.ticketPrefix(expectedSessionId),          // ARGV[4]: QueueTicket Key prefix
@@ -475,7 +477,11 @@ public class AdmissionTokenRedisStore {
             throw new IllegalArgumentException("Redis 입장 토큰 검증 결과 형식이 올바르지 않습니다.");
         }
 
-        return Optional.of(new VerifiedAdmission(fields[0], Long.valueOf(fields[1]), Long.valueOf(fields[2]), Long.valueOf(fields[3]), Instant.parse(fields[4])));
+        return Optional.of(new VerifiedAdmission(fields[0],
+                Long.valueOf(fields[1]),
+                Long.valueOf(fields[2]),
+                Long.valueOf(fields[3]),
+                Instant.parse(fields[4])));
     }
 
     // 원문 토큰을 SHA-256으로 해시
@@ -492,6 +498,7 @@ public class AdmissionTokenRedisStore {
     }
 
     // 검증 완료 후 좌석 서비스에서 사용할 내부 정보
-    public record VerifiedAdmission(String queueTicketId, Long userId, Long eventId, Long sessionId, Instant expiresAt) {
+    public record VerifiedAdmission(String queueTicketId, Long userId, Long eventId,
+                                    Long sessionId, Instant expiresAt) {
     }
 }

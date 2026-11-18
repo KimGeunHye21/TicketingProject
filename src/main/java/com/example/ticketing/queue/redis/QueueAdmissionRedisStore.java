@@ -316,10 +316,12 @@ public class QueueAdmissionRedisStore {
         long selectingTtlMillis = validateAndGetTtlMillis(sessionId, maxSelectingUsers, selectingTtl);
 
         try {
-            Long admittedCount = redisTemplate.execute(ADMIT_NEXT_SCRIPT, List.of(QueueRedisKey.waitingQueue(sessionId), // KEYS[1]: WAITING ZSET
+            Long admittedCount = redisTemplate.execute(ADMIT_NEXT_SCRIPT,
+                    List.of(QueueRedisKey.waitingQueue(sessionId), // KEYS[1]: WAITING ZSET
                                     QueueRedisKey.selectingQueue(sessionId), // KEYS[2]: SELECTING ZSET
                                     QueueRedisKey.waitingHeartbeat(sessionId) // KEYS[3]: WAITING heartbeat ZSET
-                            ),  QueueRedisKey.ticketPrefix(sessionId), // ARGV[1]: QueueTicket Key prefix
+                            ),
+                            QueueRedisKey.ticketPrefix(sessionId), // ARGV[1]: QueueTicket Key prefix
                             Integer.toString(maxSelectingUsers), // ARGV[2]: 최대 SELECTING 인원
                             Long.toString(selectingTtlMillis), // ARGV[3]: SELECTING 제한시간(ms)
                             Integer.toString(MAX_WAITING_INSPECTIONS), // ARGV[4]: 최대 WAITING 검사 수

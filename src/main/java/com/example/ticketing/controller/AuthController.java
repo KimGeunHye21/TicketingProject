@@ -29,7 +29,8 @@ public class AuthController {
         LoginResult result = authService.login(provider, request);
 
         // Refresh Token을 브라우저에 저장할 HttpOnly 쿠키 생성
-        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", result.refreshToken()).httpOnly(true).secure(false) // 로컬 개발(http)
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken",
+                        result.refreshToken()).httpOnly(true).secure(false) // 로컬 개발(http)
                         .path("/").maxAge(Duration.ofDays(14)).sameSite("Lax") //다른 사이트에서 내 사이트로 요청을 보낼 때 쿠키가 함부로 전송되는 걸 제한하는 보안 설정
                         .build();
 

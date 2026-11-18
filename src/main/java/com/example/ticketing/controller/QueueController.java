@@ -23,7 +23,9 @@ public class QueueController {
 
     // 대기열 참가
     @PostMapping("/events/{eventId}/sessions/{sessionId}")
-    public ResponseEntity<QueueJoinResponse> joinQueue(@AuthenticationPrincipal CustomUserDetails userDetails, @PathVariable Long eventId, @PathVariable Long sessionId) {
+    public ResponseEntity<QueueJoinResponse> joinQueue(@AuthenticationPrincipal CustomUserDetails userDetails,
+                                                       @PathVariable Long eventId,
+                                                       @PathVariable Long sessionId) {
         Long userId = userDetails.getUserId();
 
         QueueJoinResponse response = queueService.joinQueue(userId, eventId, sessionId);
@@ -33,9 +35,10 @@ public class QueueController {
 
     // 대기열 상태 조회
     @GetMapping("/events/{eventId}/sessions/{sessionId}")
-    public ResponseEntity<QueueStatusResponse> getQueueStatus(@AuthenticationPrincipal CustomUserDetails userDetails, @PathVariable Long eventId, @PathVariable Long sessionId) {
+    public ResponseEntity<QueueStatusResponse> getQueueStatus(@AuthenticationPrincipal CustomUserDetails userDetails,
+                                                              @PathVariable Long eventId,
+                                                              @PathVariable Long sessionId) {
         Long userId = userDetails.getUserId();
-
         QueueStatusResult result = queueService.getQueueStatus(userId, eventId, sessionId);
 
         ResponseEntity.BodyBuilder responseBuilder = ResponseEntity.ok();

@@ -336,9 +336,11 @@ public class QueueHeartbeatRedisStore {
         long heartbeatTimeoutMillis = validateCleanupArguments(sessionId, heartbeatTimeout, batchSize);
 
         try {
-            Long cancelledCount = redisTemplate.execute(CANCEL_STALE_WAITING_SCRIPT, List.of(QueueRedisKey.waitingHeartbeat(sessionId), // KEYS[1]: WAITING heartbeat ZSET
+            Long cancelledCount = redisTemplate.execute(CANCEL_STALE_WAITING_SCRIPT,
+                    List.of(QueueRedisKey.waitingHeartbeat(sessionId), // KEYS[1]: WAITING heartbeat ZSET
                                     QueueRedisKey.waitingQueue(sessionId)      // KEYS[2]: WAITING ZSET
-                            ), QueueRedisKey.ticketPrefix(sessionId),             // ARGV[1]: QueueTicket key prefix
+                            ),
+                            QueueRedisKey.ticketPrefix(sessionId),             // ARGV[1]: QueueTicket key prefix
                             QueueRedisKey.userTicketPrefix(sessionId),         // ARGV[2]: userTicket key prefix
                             Long.toString(heartbeatTimeoutMillis),             // ARGV[3]: heartbeat timeout(ms)
                             Long.toString(TERMINAL_RETENTION.toMillis()),      // ARGV[4]: 종료 상태 보존시간(ms)

@@ -400,9 +400,12 @@ public class QueueRedisStore {
         }
 
         try {
-            String result = redisTemplate.execute(FIND_TICKET_STATUS_BY_USER_SCRIPT, List.of(QueueRedisKey.userTicket(sessionId, userId), // KEYS[1]: user → ticketId
-                                    QueueRedisKey.waitingQueue(sessionId)       // KEYS[2]: WAITING ZSET
-                            ), QueueRedisKey.ticketPrefix(sessionId),              // ARGV[1]: ticket key prefix
+            String result = redisTemplate.execute(FIND_TICKET_STATUS_BY_USER_SCRIPT,
+                    List.of(
+                                QueueRedisKey.userTicket(sessionId, userId), // KEYS[1]: user → ticketId
+                                QueueRedisKey.waitingQueue(sessionId)       // KEYS[2]: WAITING ZSET
+                            ),
+                            QueueRedisKey.ticketPrefix(sessionId),              // ARGV[1]: ticket key prefix
                             userId.toString(),                                  // ARGV[2]: userId
                             sessionId.toString()                                // ARGV[3]: sessionId
                     );
@@ -551,7 +554,8 @@ public class QueueRedisStore {
     /**
      * 상태를 종료상태로 변경 (만료or취소)
      */
-    private boolean transitionToTerminal(Long userId, Long sessionId, String queueTicketId, QueueStatus targetStatus, Instant now) {
+    private boolean transitionToTerminal(Long userId, Long sessionId, String queueTicketId,
+                                         QueueStatus targetStatus, Instant now) {
         try {
             Long transitioned = redisTemplate.execute(
                     TERMINAL_TRANSITION_SCRIPT,
@@ -728,7 +732,8 @@ public class QueueRedisStore {
         validateWaitingCleanupArguments(sessionId, scanCount);
 
         try {
-            Long removedCount = redisTemplate.execute(CLEANUP_DANGLING_WAITING_SCRIPT, List.of(QueueRedisKey.waitingQueue(sessionId),          // KEYS[1]: WAITING ZSET
+            Long removedCount = redisTemplate.execute(CLEANUP_DANGLING_WAITING_SCRIPT,
+                    List.of(QueueRedisKey.waitingQueue(sessionId),          // KEYS[1]: WAITING ZSET
                                     QueueRedisKey.waitingHeartbeat(sessionId),      // KEYS[2]: WAITING heartbeat ZSET
                                     QueueRedisKey.waitingCleanupCursor(sessionId)   // KEYS[3]: cleanup ZSCAN cursor key
                             ), QueueRedisKey.ticketPrefix(sessionId),                  // ARGV[1]: QueueTicket key prefix
