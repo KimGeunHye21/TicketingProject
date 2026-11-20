@@ -33,7 +33,7 @@ public class SeatInstance {
     @JoinColumn(name = "seat_id", nullable = false)
     private Seat seat;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private SeatStatus status = SeatStatus.AVAILABLE;
+//    @Enumerated(EnumType.STRING)
+//    @Column(nullable = false)
+//    private SeatStatus status = SeatStatus.AVAILABLE;
 }
