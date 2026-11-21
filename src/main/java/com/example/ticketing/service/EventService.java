@@ -94,19 +94,9 @@ public class EventService {
         return new SectionMapResponse(event.getId(), event.getSeatMapViewBox(), sections);
     }
 
-    // 공연 좌석 정보 조회
-    public List<SeatResponse> getSeats(Long eventId, Long sessionId, Long sectionId) {
-        // TODO: 예매 오픈 시각이 지났는지
-        // TODO: sessionId가 eventId에 속한 회차인지 검증 (try -catch로 처리?
-        // TODO: sectionId가 eventId에 속한 구역인지 검증
-        // TODO: DB의 RESERVED 상태와 Redis의 임시 선점 상태를 함께 조회
-        // TODO: 폴링, SSE 또는 WebSocket 중 실시간 갱신 방식을 결정
-        // TODO: Seat와 Section을 fetch join해 N+1 조회 문제 방지
-        throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "실시간 좌석 조회 기능은 아직 구현되지 않았습니다.");
-    }
-
     private Event findEvent(Long eventId) {
-        return eventRepository.findById(eventId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "공연을 찾을 수 없습니다."));
+        return eventRepository.findById(eventId).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "공연을 찾을 수 없습니다."));
     }
 
     private long countAvailableSeats(Long sessionId, Long sectionId) {

@@ -48,28 +48,4 @@ public class EventController {
         return ResponseEntity.ok(eventService.getSectionMap(eventId, sessionId));
     }
 
-    // 공연 좌석 정보 조회
-    @GetMapping("/{eventId}/sessions/{sessionId}/seats")
-    public ResponseEntity<List<SeatResponse>> getSeats(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable Long eventId,
-            @PathVariable Long sessionId,
-            @RequestParam(required = false) Long sectionId,
-            HttpServletRequest request
-    ) {
-        // verifyAdmission(request, userDetails.getUserId(), eventId, sessionId);
-
-        return ResponseEntity.ok(eventService.getSeats(eventId, sessionId, sectionId));
-    }
-
-    private void verifyAdmission(HttpServletRequest request, Long userId, Long eventId, Long sessionId) {
-        // 검사할 쿠키 이름
-        String cookieName = admissionCookieFactory.cookieName(sessionId);
-        // 요청에 포함된 쿠키를 찾음
-        Cookie admissionCookie = WebUtils.getCookie(request, cookieName);
-        // 쿠키에서 토큰 문자열만 꺼냄
-        String rawToken = admissionCookie == null ? null : admissionCookie.getValue();
-
-        admissionTokenService.verifyOrThrow(rawToken, userId, eventId, sessionId);
-    }
 }

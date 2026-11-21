@@ -8,8 +8,10 @@ public record SeatResponse(Long seatInstanceId, Long seatId, Long sectionId, Str
     public static SeatResponse from(SeatInstance seatInstance) {
         Seat seat = seatInstance.getSeat();
 
-        // boolean reservable = seatInstance.getStatus() == SeatStatus.AVAILABLE;
+        // TODO: reservable 구하기
+        boolean reservable = false;
 
-        return new SeatResponse(seatInstance.getId(), seat.getId(), seat.getSection().getId(), seat.getSeatRow(), seat.getSeatNo(), seat.getX(), seat.getY(), reservable);
+        return new SeatResponse(seatInstance.getId(), seat.getId(), seat.getSection().getId(),
+                seat.getSeatRow(), seat.getSeatNo(), seat.getX(), seat.getY(), reservable);
     }
 }
