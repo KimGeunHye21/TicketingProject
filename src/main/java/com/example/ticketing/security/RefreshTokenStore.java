@@ -1,7 +1,6 @@
-package com.example.ticketing.redis;
+package com.example.ticketing.security;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 

@@ -10,7 +10,7 @@ import com.example.ticketing.oauth.GoogleOAuthClient;
 import com.example.ticketing.oauth.OAuthClient;
 import com.example.ticketing.oauth.OAuthUserInfo;
 
-import com.example.ticketing.redis.RefreshTokenStore;
+import com.example.ticketing.security.RefreshTokenStore;
 import com.example.ticketing.repository.UserRepository;
 import com.example.ticketing.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
