@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface SectionRepository extends JpaRepository<Section, Long> {
     List<Section> findAllByEvent_IdOrderByIdAsc(Long eventId);
+    boolean existsByIdAndEvent_Id(Long sectionId, Long eventId);
 }

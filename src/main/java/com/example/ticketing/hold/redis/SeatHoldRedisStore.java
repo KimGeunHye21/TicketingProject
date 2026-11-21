@@ -1,4 +1,4 @@
-package com.example.ticketing.seathold.redis;
+package com.example.ticketing.hold.redis;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -210,101 +210,75 @@ public class SeatHoldRedisStore {
         }
     }
 
-    public enum ResultCode {
-        SUCCESS,
-        SEAT_UNAVAILABLE,
-        LIMIT_EXCEEDED,
-        NOT_READY,
-        INVALID_ARGUMENT
-    }
-
 
 
     private static final DefaultRedisScript<String> SEAT_STATUS_SCRIPT =
-            new DefaultRedisScript<>("""
-                -- KEYS[1]: 회차별 reservations Hash
-                -- KEYS[2..N]: 조회할 좌석들의 hold String
-                -- ARGV[1]: 현재 로그인한 userId
-                -- ARGV[2..N]: 각 hold 키에 대응하는 seatInstanceId
-                
-                
-                local function failure(code)
-                    return cjson.encode({code = code})
-                end
-                if #KEYS < 1 or #KEYS ~= #ARGV or ARGV[1] == '' then
-                    return failure('INVALID_ARGUMENT')
-                end
-                if redis.call('HGET', KEYS[1], 'ready') ~= '1' then
-                    return failure('NOT_READY')
-                end
-                
-                -- 조회할 좌석이 없는 경우
-                if #KEYS == 1 then
-                    return '{"code":"SUCCESS","seats":[]}'
-                end
+        new DefaultRedisScript<>("""
+            -- KEYS[1]: 회차별 예약 Hash
+            -- KEYS[2..N]: 좌석별 선점 키
+            -- ARGV[1..N-1]: 각 선점 키에 대응하는 좌석 ID
+            local function failure(code)
+                return cjson.encode({code = code})
+            end
 
-                local userId = ARGV[1]
-                local serverTime = redis.call('TIME')
-                local now = tonumber(serverTime[1]) * 1000
-                    + math.floor(tonumber(serverTime[2]) / 1000)
-                
-                local seats = {}
-                for i = 2, #KEYS do
-                    local seatInstanceId = ARGV[i]
-                    local seat = {
-                        seatInstanceId = seatInstanceId,
-                        status = 'AVAILABLE',
-                        isMine = false
-                    }
-               
-                    -- RESERVED인지?
-                    if redis.call('HEXISTS', KEYS[1], 'seat:' .. seatInstanceId) == 1 then
-                        seat.status = 'RESERVED'
-                    else
-                        local holdValue = redis.call('GET', KEYS[i])
-                        if holdValue then
-                            local ok, hold = pcall(cjson.decode, holdValue)
-                            if not ok or type(hold) ~= 'table'
-                                or hold.seatInstanceId ~= seatInstanceId
-                                or type(hold.userId) ~= 'string'
-                                or type(hold.holdId) ~= 'string'
-                                or type(hold.expiresAt) ~= 'number' then
-                                return failure('NOT_READY')
-                            end
-                            -- 선점 중인지?
-                            if hold.expiresAt > now then
-                                seat.status = 'HELD'
-                                seat.isMine = hold.userId == userId
-                                -- 내 선점인지?
-                                if seat.isMine then
-                                    seat.holdId = hold.holdId
-                                    seat.expiresAt = hold.expiresAt
-                                end
-                            end
+            if #KEYS ~= #ARGV + 1 then
+                return failure('INVALID_ARGUMENT')
+            end
+            if redis.call('HGET', KEYS[1], 'ready') ~= '1' then
+                return failure('NOT_READY')
+            end
+            if #ARGV == 0 then
+                return '{"code":"SUCCESS","seats":[]}'
+            end
+
+            local serverTime = redis.call('TIME')
+            local now = tonumber(serverTime[1]) * 1000
+                + math.floor(tonumber(serverTime[2]) / 1000)
+            
+            local seats = {}
+            for i = 2, #KEYS do
+                local seatInstanceId = ARGV[i - 1]
+                local status = 'AVAILABLE'
+            
+                ---- 예약 완료된 좌석이면 RESERVED
+                if redis.call('HEXISTS', KEYS[1], 'seat:' .. seatInstanceId) == 1 then
+                    status = 'RESERVED'
+                else
+                    -- 예약되지 않았다면 현재 선점 여부 확인
+                    local holdValue = redis.call('GET', KEYS[i])
+                    if holdValue then
+            
+                        local ok, hold = pcall(cjson.decode, holdValue)
+                        -- 선점 데이터가 깨져 있으면 상태를 신뢰할 수 없음
+                        if not ok or type(hold) ~= 'table'
+                            or hold.seatInstanceId ~= seatInstanceId
+                            or type(hold.expiresAt) ~= 'number' then
+                            return failure('NOT_READY')
+                        end
+            
+                        ---- 아직 만료되지 않은 선점이면 HELD
+                        if hold.expiresAt > now then
+                            status = 'HELD'
                         end
                     end
-                    seats[#seats + 1] = seat
                 end
-                return cjson.encode({code = 'SUCCESS', seats = seats})
-                """, String.class);
+
+                seats[#seats + 1] = {seatInstanceId = seatInstanceId, status = status}
+            end
+            return cjson.encode({code = 'SUCCESS', seats = seats})
+            """, String.class);
 
     // 전달받은 좌석 목록의 상태를 한 번에 조회
-    public SeatStatusResult getSeatStatuses(
-            Long userId,
-            Long sessionId,
-            List<Long> seatInstanceIds
-    ) {
-        if (userId == null || userId <= 0 || sessionId == null || sessionId <= 0
-                || seatInstanceIds == null
+    public SeatStatusResult getSeatStatuses(Long sessionId, List<Long> seatInstanceIds) {
+        if (sessionId == null || sessionId <= 0 || seatInstanceIds == null
                 || seatInstanceIds.stream().anyMatch(id -> id == null || id <= 0)) {
             throw new IllegalArgumentException("좌석 상태 조회 요청 값이 올바르지 않습니다.");
         }
 
         List<Long> ids = seatInstanceIds.stream().distinct().toList();
         List<String> keys = new ArrayList<>(ids.size() + 1);
-        List<String> arguments = new ArrayList<>(ids.size() + 1);
+        List<String> arguments = new ArrayList<>(ids.size());
         keys.add(SeatHoldRedisKey.reservations(sessionId));
-        arguments.add(userId.toString());
 
         for (Long seatInstanceId : ids) {
             keys.add(SeatHoldRedisKey.hold(sessionId, seatInstanceId));
@@ -343,25 +317,28 @@ public class SeatHoldRedisStore {
         return result;
     }
 
+    public record SeatStatusInfo(Long seatInstanceId, SeatState status) {
+    }
+
     public record SeatStatusResult(ResultCode code, List<SeatStatusInfo> seats) {
         public boolean success() {
             return code == ResultCode.SUCCESS;
         }
     }
 
-    public record SeatStatusInfo(
-            Long seatInstanceId,
-            SeatState status,
-            boolean isMine,
-            String holdId,
-            Long expiresAt
-    ) {
-    }
-
     public enum SeatState {
         AVAILABLE,
         HELD,
         RESERVED
+    }
+
+    // 조회의 결과를 나타내기 위한 code
+    public enum ResultCode {
+        SUCCESS,
+        SEAT_UNAVAILABLE,
+        LIMIT_EXCEEDED,
+        NOT_READY,
+        INVALID_ARGUMENT
     }
 
 

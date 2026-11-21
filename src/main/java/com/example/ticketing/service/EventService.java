@@ -2,13 +2,7 @@ package com.example.ticketing.service;
 
 import com.example.ticketing.domain.Event;
 import com.example.ticketing.domain.EventSession;
-import com.example.ticketing.domain.Section;
-import com.example.ticketing.dto.event.EventDetailResponse;
-import com.example.ticketing.dto.event.EventSessionResponse;
-import com.example.ticketing.dto.event.EventSummaryResponse;
-import com.example.ticketing.dto.event.SeatResponse;
-import com.example.ticketing.dto.event.SectionMapResponse;
-import com.example.ticketing.dto.event.SectionResponse;
+import com.example.ticketing.dto.event.*;
 import com.example.ticketing.exception.BookingNotOpenException;
 import com.example.ticketing.exception.EventSessionNotFoundException;
 import com.example.ticketing.repository.EventRepository;
@@ -93,6 +87,29 @@ public class EventService {
 
         return new SectionMapResponse(event.getId(), event.getSeatMapViewBox(), sections);
     }
+
+    // 공연 좌석 정보 조회
+    public List<SeatResponse> getSeats(Long eventId, Long sessionId, Long sectionId) {
+        Event event = findEvent(eventId);
+        EventSession session = eventSessionRepository.findByIdAndEvent_Id(sessionId, eventId)
+                .orElseThrow(() -> new EventSessionNotFoundException(eventId, sessionId));
+        LocalDateTime now = LocalDateTime.now();
+
+        // 예매 오픈 시각이 지났는지
+        if (now.isBefore(event.getBookingOpenAt())) {
+            throw BookingNotOpenException.beforeOpen(event.getBookingOpenAt());
+        }
+        if (!now.isBefore(session.getStartAt())) {
+            throw BookingNotOpenException.sessionStarted(session.getStartAt());
+        }
+
+        // TODO: sessionId가 eventId에 속한 회차인지 검증 (try -catch로 처리?
+        // TODO: sectionId가 eventId에 속한 구역인지 검증
+        // TODO: DB의 RESERVED 상태와 Redis의 임시 선점 상태를 함께 조회
+        // TODO: Seat와 Section을 fetch join해 N+1 조회 문제 방지
+        throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "실시간 좌석 조회 기능은 아직 구현되지 않았습니다.");
+    }
+
 
     private Event findEvent(Long eventId) {
         return eventRepository.findById(eventId).orElseThrow(() ->

@@ -1,4 +1,4 @@
-package com.example.ticketing.seathold.redis;
+package com.example.ticketing.hold.redis;
 
 public final class SeatHoldRedisKey {
     private SeatHoldRedisKey() {
