@@ -27,4 +27,18 @@ public interface SeatInstanceRepository extends JpaRepository<SeatInstance, Long
             @Param("sessionId") Long sessionId,
             @Param("sectionId") Long sectionId
     );
+
+    @Query("""
+        select si
+        from SeatInstance si
+        join fetch si.seat seat
+        join fetch seat.section section
+        where si.session.id = :sessionId
+          and (:sectionId is null or section.id = :sectionId)
+        order by section.id, seat.seatRow, seat.seatNo
+        """)
+    List<SeatInstance> findSeatsBySessionAndSection(
+            @Param("sessionId") Long sessionId,
+            @Param("sectionId") Long sectionId
+    );
 }

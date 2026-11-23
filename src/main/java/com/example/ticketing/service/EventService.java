@@ -7,6 +7,7 @@ import com.example.ticketing.exception.BookingNotOpenException;
 import com.example.ticketing.exception.EventSessionNotFoundException;
 import com.example.ticketing.repository.EventRepository;
 import com.example.ticketing.repository.EventSessionRepository;
+import com.example.ticketing.repository.SeatInstanceRepository;
 import com.example.ticketing.repository.SectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -31,6 +32,7 @@ public class EventService {
     private final EventRepository eventRepository;
     private final EventSessionRepository eventSessionRepository;
     private final SectionRepository sectionRepository;
+    private final SeatInstanceRepository seatInstanceRepository;
 
     // 공연 목록 조회
     public Page<EventSummaryResponse> getEvents(int page) {
@@ -68,15 +70,8 @@ public class EventService {
         Event event = findEvent(eventId);
         EventSession session = eventSessionRepository.findByIdAndEvent_Id(sessionId, eventId)
                 .orElseThrow(() -> new EventSessionNotFoundException(eventId, sessionId));
-        LocalDateTime now = LocalDateTime.now();
 
-        // 유효한 예매 시간인지
-        if (now.isBefore(event.getBookingOpenAt())) {
-            throw BookingNotOpenException.beforeOpen(event.getBookingOpenAt());
-        }
-        if (!now.isBefore(session.getStartAt())) {
-            throw BookingNotOpenException.sessionStarted(session.getStartAt());
-        }
+        validateBookingTime(event, session); // 예매 오픈 후, 공연 시작 전인지 검사
 
         List<SectionResponse> sections = sectionRepository.findAllByEvent_IdOrderByIdAsc(eventId).
                 stream().
@@ -93,23 +88,30 @@ public class EventService {
         Event event = findEvent(eventId);
         EventSession session = eventSessionRepository.findByIdAndEvent_Id(sessionId, eventId)
                 .orElseThrow(() -> new EventSessionNotFoundException(eventId, sessionId));
-        LocalDateTime now = LocalDateTime.now();
 
-        // 예매 오픈 시각이 지났는지
+        validateBookingTime(event, session); // 예매 오픈 후, 공연 시작 전인지 검사
+
+        // sessionId가 eventId에 속한 회차, 구역 인지 검증
+        if (sectionId != null && !sectionRepository.existsByIdAndEvent_Id(sectionId, eventId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "공연에 속한 구역을 찾을 수 없습니다.");
+        }
+
+        // 좌석 정보 반환
+        return seatInstanceRepository.findSeatsBySessionAndSection(sessionId, sectionId)
+                .stream()
+                .map(SeatResponse::from)
+                .toList();
+    }
+
+    private void validateBookingTime(Event event, EventSession session) {
+        LocalDateTime now = LocalDateTime.now();
         if (now.isBefore(event.getBookingOpenAt())) {
             throw BookingNotOpenException.beforeOpen(event.getBookingOpenAt());
         }
         if (!now.isBefore(session.getStartAt())) {
             throw BookingNotOpenException.sessionStarted(session.getStartAt());
         }
-
-        // TODO: sessionId가 eventId에 속한 회차인지 검증 (try -catch로 처리?
-        // TODO: sectionId가 eventId에 속한 구역인지 검증
-        // TODO: DB의 RESERVED 상태와 Redis의 임시 선점 상태를 함께 조회
-        // TODO: Seat와 Section을 fetch join해 N+1 조회 문제 방지
-        throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "실시간 좌석 조회 기능은 아직 구현되지 않았습니다.");
     }
-
 
     private Event findEvent(Long eventId) {
         return eventRepository.findById(eventId).orElseThrow(() ->
