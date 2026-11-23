@@ -64,11 +64,6 @@ public class SeatHoldRedisStore {
                         return result('INVALID_ARGUMENT')
                     end
 
-
-                    -- 예약 정보가 준비되지 않았다면 선점을 허용X
-                    if redis.call('HGET', KEYS[1], 'ready') ~= '1' then
-                        return result('NOT_READY')
-                    end
                     -- 이미 예약 완료된 좌석인지
                     if redis.call('HEXISTS', KEYS[1], 'seat:' .. seatInstanceId) == 1 then
                         return result('SEAT_UNAVAILABLE')
@@ -224,9 +219,7 @@ public class SeatHoldRedisStore {
             if #KEYS ~= #ARGV + 1 then
                 return failure('INVALID_ARGUMENT')
             end
-            if redis.call('HGET', KEYS[1], 'ready') ~= '1' then
-                return failure('NOT_READY')
-            end
+            
             if #ARGV == 0 then
                 return '{"code":"SUCCESS","seats":[]}'
             end
