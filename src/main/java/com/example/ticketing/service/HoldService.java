@@ -6,13 +6,9 @@ import com.example.ticketing.domain.SeatInstance;
 import com.example.ticketing.dto.hold.SeatHoldResponse;
 import com.example.ticketing.dto.hold.SeatStatusResponse;
 import com.example.ticketing.exception.BookingNotOpenException;
-import com.example.ticketing.exception.EventNotFoundException;
-import com.example.ticketing.exception.EventSessionNotFoundException;
+import com.example.ticketing.hold.cache.SeatStatusQueryCache;
 import com.example.ticketing.queue.service.AdmissionTokenService;
-import com.example.ticketing.repository.EventRepository;
-import com.example.ticketing.repository.EventSessionRepository;
 import com.example.ticketing.repository.SeatInstanceRepository;
-import com.example.ticketing.repository.SectionRepository;
 import com.example.ticketing.hold.redis.SeatHoldRedisStore;
 import com.example.ticketing.security.AdmissionCookieFactory;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,13 +27,12 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class HoldService {
-    private final EventRepository eventRepository;
-    private final EventSessionRepository eventSessionRepository;
+
     private final SeatInstanceRepository seatInstanceRepository;
-    private final SectionRepository sectionRepository;
     private final SeatHoldRedisStore seatHoldRedisStore;
     private final AdmissionTokenService admissionTokenService;
     private final AdmissionCookieFactory admissionCookieFactory;
+    private final SeatStatusQueryCache seatStatusQueryCache;
 
     // 좌석 선점
     public SeatHoldResponse holdSeat(Long userId, Long seatInstanceId, Map<String, String> cookies) {
@@ -44,7 +40,8 @@ public class HoldService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "좌석을 찾을 수 없습니다."));
         EventSession session = seatInstance.getSession();
         Event event = session.getEvent();
-        validateBookingTime(event, session);
+
+        validateBookingTime(event.getBookingOpenAt(), session.getStartAt());
         verifyAdmission(cookies, userId, event.getId(), session.getId());
 
         SeatHoldRedisStore.HoldResult result;
@@ -52,6 +49,7 @@ public class HoldService {
             result = seatHoldRedisStore.holdOrGet(
                     userId, session.getId(), seatInstance.getId(), event.getMaxTicketPerUser()
             );
+
         } catch (IllegalStateException exception) {
             throw new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
@@ -77,23 +75,19 @@ public class HoldService {
         };
     }
 
+
     // 구역 전체 좌석 상태 조회
     public List<SeatStatusResponse> getSeatStatuses(Long eventId, Long sessionId, Long sectionId) {
-        Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new EventNotFoundException(eventId));
-        EventSession session = eventSessionRepository.findByIdAndEvent_Id(sessionId, eventId)
-                .orElseThrow(() -> new EventSessionNotFoundException(eventId, sessionId));
-        validateBookingTime(event, session);
 
-        if (sectionId != null && !sectionRepository.existsByIdAndEvent_Id(sectionId, eventId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "공연에 속한 구역을 찾을 수 없습니다.");
-        }
+        // 좌석 상태 조회에 필요한 데이터 캐싱
+        SeatStatusQueryCache.QueryData queryData = seatStatusQueryCache.get(eventId, sessionId, sectionId);
+        validateBookingTime(queryData.bookingOpenAt(), queryData.sessionStartAt());
+        List<Long> seatInstanceIds = queryData.seatInstanceIds();
 
-
-        List<Long> seatInstanceIds = seatInstanceRepository.findIdsBySessionAndSection(sessionId, sectionId);
         SeatHoldRedisStore.SeatStatusResult result;
         try {
             result = seatHoldRedisStore.getSeatStatuses(sessionId, seatInstanceIds);
+
         } catch (IllegalStateException exception) {
             throw new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
@@ -115,13 +109,13 @@ public class HoldService {
         return result.seats().stream().map(SeatStatusResponse::from).toList();
     }
 
-    private void validateBookingTime(Event event, EventSession session) {
+    private void validateBookingTime(LocalDateTime bookingOpenAt, LocalDateTime sessionStartAt) {
         LocalDateTime now = LocalDateTime.now();
-        if (now.isBefore(event.getBookingOpenAt())) {
-            throw BookingNotOpenException.beforeOpen(event.getBookingOpenAt());
+        if (now.isBefore(bookingOpenAt)) {
+            throw BookingNotOpenException.beforeOpen(bookingOpenAt);
         }
-        if (!now.isBefore(session.getStartAt())) {
-            throw BookingNotOpenException.sessionStarted(session.getStartAt());
+        if (!now.isBefore(sessionStartAt)) {
+            throw BookingNotOpenException.sessionStarted(sessionStartAt);
         }
     }
 
